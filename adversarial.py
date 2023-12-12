@@ -11,16 +11,15 @@ import torch.nn.functional as F
 from torch.distributions import Categorical
 
 import numpy as np
-import os, sys, time, argparse
+import os, time, argparse
 from progress.bar import Bar
 
-import config, utils
+import utils
 from config import device
 from data import Dataset
 from model import PerformanceRNN
-from sequence import EventSeq, ControlSeq
+from sequence import EventSeq
 
-# pylint: disable=E1101
 
 
 #========================================================================

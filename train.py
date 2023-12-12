@@ -1,12 +1,9 @@
 import torch
 from torch import nn
 from torch import optim
-from torch.autograd import Variable
 
 import numpy as np
 
-import os
-import sys
 import time
 import optparse
 
@@ -15,10 +12,8 @@ import utils
 import config
 from data import Dataset
 from model import PerformanceRNN
-from sequence import NoteSeq, EventSeq, ControlSeq
+from sequence import EventSeq, ControlSeq
 
-# pylint: disable=E1102
-# pylint: disable=E1101
 
 #========================================================================
 # Settings

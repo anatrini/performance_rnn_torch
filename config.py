@@ -1,7 +1,6 @@
 import torch
 from sequence import EventSeq, ControlSeq
 
-#pylint: disable=E1101
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 

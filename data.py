@@ -1,15 +1,11 @@
 import os
 import torch
-import itertools, os
 import numpy as np
 from progress.bar import Bar
 
-import config
 import utils
-from sequence import EventSeq, ControlSeq
+from sequence import ControlSeq
 
-# pylint: disable=E1101
-# pylint: disable=W0101
 
 class Dataset:
     def __init__(self, root, verbose=False):

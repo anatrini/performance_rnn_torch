@@ -1,5 +1,4 @@
 import os
-import re
 import sys
 import torch
 import hashlib
@@ -8,7 +7,6 @@ from concurrent.futures import ProcessPoolExecutor
 
 from sequence import NoteSeq, EventSeq, ControlSeq
 import utils
-import config
 
 def preprocess_midi(path):
     note_seq = NoteSeq.from_midi_file(path)

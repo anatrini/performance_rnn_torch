@@ -1,16 +1,12 @@
 import torch
 import numpy as np
 import os
-import sys
 import optparse
 
-import config
 import utils
 from config import device, model as model_config
 from model import PerformanceRNN
-from sequence import EventSeq, Control, ControlSeq
-
-# pylint: disable=E1101,E1102
+from sequence import Control, ControlSeq
 
 
 # ========================================================================

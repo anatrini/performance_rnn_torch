@@ -17,7 +17,7 @@ Usage:
 
 import os, sys, time, threading
 import pygame, fluidsynth
-import sequence, pretty_midi
+import sequence
 import numpy as np
 
 # pylint: disable=E1101

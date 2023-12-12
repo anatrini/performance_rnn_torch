@@ -1,14 +1,10 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.distributions import Categorical, Gumbel
 
-from collections import namedtuple
 import numpy as np
 from progress.bar import Bar
 from config import device
-
-# pylint: disable=E1101,E1102
 
 
 class PerformanceRNN(nn.Module):
