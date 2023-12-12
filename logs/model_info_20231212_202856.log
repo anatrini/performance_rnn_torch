@@ -1,0 +1,49 @@
+2023-12-12 20:28:57,420 - INFO - Session path: save/maestro_2008_2011.sess
+2023-12-12 20:28:57,420 - INFO - Dataset path: dataset/processed/maestro_2008_2011
+2023-12-12 20:28:57,420 - INFO - Saving interval: 60.0
+2023-12-12 20:28:57,420 - INFO - Hyperparameters: init_dim=32,event_dim=240,control_dim=24,hidden_dim=512,gru_layers=3,gru_dropout=0.3
+2023-12-12 20:28:57,420 - INFO - Learning rate: 0.001
+2023-12-12 20:28:57,420 - INFO - Batch size: 128
+2023-12-12 20:28:57,420 - INFO - Window size: 200
+2023-12-12 20:28:57,420 - INFO - Stride size: 10
+2023-12-12 20:28:57,420 - INFO - Control ratio: 0.3
+2023-12-12 20:28:57,420 - INFO - Teacher forcing ratio: 1.0
+2023-12-12 20:28:57,420 - INFO - Random transposition: False
+2023-12-12 20:28:57,420 - INFO - Reset optimizer: False
+2023-12-12 20:28:57,420 - INFO - Enabling logging: False
+2023-12-12 20:28:57,420 - INFO - Device: cpu
+2023-12-12 20:28:57,917 - INFO - Loading session
+2023-12-12 20:28:57,964 - INFO - Session is loaded from save/maestro_2008_2011.sess
+2023-12-12 20:28:58,172 - INFO - PerformanceRNN(
+  (inithid_fc): Linear(in_features=32, out_features=1536, bias=True)
+  (inithid_fc_activation): Tanh()
+  (event_embedding): Embedding(240, 240)
+  (concat_input_fc): Linear(in_features=265, out_features=512, bias=True)
+  (concat_input_fc_activation): LeakyReLU(negative_slope=0.1, inplace=True)
+  (gru): GRU(512, 512, num_layers=3, dropout=0.3)
+  (output_fc): Linear(in_features=1536, out_features=240, bias=True)
+  (output_fc_activation): Softmax(dim=-1)
+)
+2023-12-12 20:28:58,172 - INFO - Loading dataset
+2023-12-12 20:28:58,556 - INFO - Dataset(root="dataset/processed/maestro_2008_2011", samples=310, avglen=16159.593548387096)
+2023-12-12 20:29:37,908 - INFO - iter 0, loss: 4.911951065063477
+2023-12-12 20:30:15,422 - INFO - iter 1, loss: 4.88608980178833
+2023-12-12 20:30:15,423 - INFO -  Saving to save/maestro_2008_2011.sess
+2023-12-12 20:30:15,484 - INFO - Done saving
+2023-12-12 20:30:52,232 - INFO - iter 2, loss: 4.897607326507568
+2023-12-12 20:31:28,863 - INFO - iter 3, loss: 4.855544090270996
+2023-12-12 20:31:28,864 - INFO -  Saving to save/maestro_2008_2011.sess
+2023-12-12 20:31:28,922 - INFO - Done saving
+2023-12-12 20:32:05,600 - INFO - iter 4, loss: 4.852964401245117
+2023-12-12 20:32:42,571 - INFO - iter 5, loss: 4.815153121948242
+2023-12-12 20:32:42,572 - INFO -  Saving to save/maestro_2008_2011.sess
+2023-12-12 20:32:42,632 - INFO - Done saving
+2023-12-12 20:33:42,433 - INFO - iter 6, loss: 4.767151355743408
+2023-12-12 20:34:48,383 - INFO - iter 7, loss: 4.7234039306640625
+2023-12-12 20:34:48,384 - INFO -  Saving to save/maestro_2008_2011.sess
+2023-12-12 20:34:48,448 - INFO - Done saving
+2023-12-12 20:35:51,612 - INFO - iter 8, loss: 4.704703330993652
+2023-12-12 20:35:51,613 - INFO -  Saving to save/maestro_2008_2011.sess
+2023-12-12 20:35:51,675 - INFO - Done saving
+2023-12-12 20:36:43,466 - INFO -  Saving to save/maestro_2008_2011.sess
+2023-12-12 20:36:43,523 - INFO - Done saving

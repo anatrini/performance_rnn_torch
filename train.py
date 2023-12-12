@@ -18,6 +18,7 @@ logger.addHandler(handler)
 #========================================================================
 
 import config
+import math
 import numpy as np
 import optparse
 import torch
@@ -27,7 +28,8 @@ import utils
 
 from data import Dataset
 from model import PerformanceRNN
-from sequence import EventSeq, ControlSeq
+from progress.bar import Bar
+from sequence import EventSeq
 #========================================================================
 # Settings
 #========================================================================
@@ -54,6 +56,11 @@ def get_options():
                       dest='batch_size',
                       type='int',
                       default=config.train['batch_size'])
+    
+    parser.add_option('-e', '--num_epochs',
+                      dest='num_epochs',
+                      type='int',
+                      default=config.train['num_epochs'])
 
     parser.add_option('-l', '--learning-rate',
                       dest='learning_rate',
@@ -101,51 +108,6 @@ def get_options():
                       default=False)
 
     return parser.parse_args()[0]
-
-#options = get_options()
-
-#------------------------------------------------------------------------
-
-# sess_path = options.sess_path
-# data_path = options.data_path
-# saving_interval = options.saving_interval
-
-# learning_rate = options.learning_rate
-# batch_size = options.batch_size
-# window_size = options.window_size
-# stride_size = options.stride_size
-# use_transposition = options.use_transposition
-# control_ratio = options.control_ratio
-# teacher_forcing_ratio = options.teacher_forcing_ratio
-# reset_optimizer = options.reset_optimizer
-# enable_logging = options.enable_logging
-
-# event_dim = EventSeq.dim()
-# control_dim = ControlSeq.dim()
-# model_config = config.model
-# model_params = utils.params2dict(options.model_params)
-# model_config.update(model_params)
-# device = config.device
-
-# print('-' * 70)
-
-# print('Session path:', sess_path)
-# print('Dataset path:', data_path)
-# print('Saving interval:', saving_interval)
-# print('-' * 70)
-
-# print('Hyperparameters:', utils.dict2params(model_config))
-# print('Learning rate:', learning_rate)
-# print('Batch size:', batch_size)
-# print('Window size:', window_size)
-# print('Stride size:', stride_size)
-# print('Control ratio:', control_ratio)
-# print('Teacher forcing ratio:', teacher_forcing_ratio)
-# print('Random transposition:', use_transposition)
-# print('Reset optimizer:', reset_optimizer)
-# print('Enabling logging:', enable_logging)
-# print('Device:', device)
-# print('-' * 70)
 
 
 #========================================================================
@@ -199,11 +161,11 @@ def load_dataset(data_path):
 
 # Function to save the model and optimizer states
 def save_model(model, model_config, optimizer, sess_path):
-    print('Saving to', sess_path)
+    logger.info(f' Saving to {sess_path}')
     torch.save({'model_config': model_config,
                 'model_state': model.state_dict(),
                 'model_optimizer_state': optimizer.state_dict()}, sess_path)
-    print('Done saving')
+    logger.info('Done saving')
 
 
 #========================================================================
@@ -213,7 +175,8 @@ def save_model(model, model_config, optimizer, sess_path):
 def train_model(model, 
                 optimizer, 
                 dataset, 
-                batch_size, 
+                batch_size,
+                num_epochs, 
                 window_size, 
                 stride_size, 
                 event_dim, 
@@ -234,57 +197,72 @@ def train_model(model,
     last_saving_time = time.time()
     loss_function = nn.CrossEntropyLoss()
 
+    # Calculate number of batches per epoch
+    num_batches = math.ceil(len(dataset.samples) / batch_size)
+
     try:
-        batch_gen = dataset.batches(batch_size, window_size, stride_size)
-
-        for iteration, (events, controls) in enumerate(batch_gen):
-            if use_transposition:
-                offset = np.random.choice(np.arange(-6, 6))
-                events, controls = utils.transposition(events, controls, offset)
-
-            events = torch.LongTensor(events).to(device)
-            assert events.shape[0] == window_size
-
-            if np.random.random() < control_ratio:
-                controls = torch.FloatTensor(controls).to(device)
-                assert controls.shape[0] == window_size
-            else:
-                controls = None
-
-            init = torch.randn(batch_size, model.init_dim).to(device)
-            outputs = model.generate(init, 
-                                    window_size, 
-                                    events=events[:-1], 
-                                    controls=controls,
-                                    teacher_forcing_ratio=teacher_forcing_ratio, 
-                                    output_type='logit'
-                                    )
+        for epoch in range(num_epochs):
+            # Create a progress bar for this epoch
+            print(f'Questa è epoch: {epoch}')
+            batch_gen = dataset.batches(batch_size, window_size, stride_size)
+            #num_batches = math.ceil(len(dataset.samples) / batch_size)
+            bar = Bar(f'Processing Epoch {epoch + 1}', max=num_batches)
         
-            assert outputs.shape[:2] == events.shape[:2]
+            for iteration, (events, controls) in enumerate(batch_gen):
+                if use_transposition:
+                    offset = np.random.choice(np.arange(-6, 6))
+                    events, controls = utils.transposition(events, controls, offset)
 
-            loss = loss_function(outputs.view(-1, event_dim), events.view(-1))
-            model.zero_grad()
-            loss.backward()
+                events = torch.LongTensor(events).to(device)
+                assert events.shape[0] == window_size
 
-            norm = utils.compute_gradient_norm(model.parameters())
-            nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                if np.random.random() < control_ratio:
+                    controls = torch.FloatTensor(controls).to(device)
+                    assert controls.shape[0] == window_size
+                else:
+                    controls = None
+
+                init = torch.randn(batch_size, model.init_dim).to(device)
+                outputs = model.generate(init, 
+                                        window_size, 
+                                        events=events[:-1], 
+                                        controls=controls,
+                                        teacher_forcing_ratio=teacher_forcing_ratio, 
+                                        output_type='logit'
+                                        )
         
-            optimizer.step()
+                assert outputs.shape[:2] == events.shape[:2]
 
-            if enable_logging:
-                writer.add_scalar('model/loss', loss.item(), iteration)
-                writer.add_scalar('model/norm', norm.item(), iteration)
+                loss = loss_function(outputs.view(-1, event_dim), events.view(-1))
+                model.zero_grad()
+                loss.backward()
 
-            logger.info(f'iter {iteration}, loss: {loss.item()}')
+                norm = utils.compute_gradient_norm(model.parameters())
+                nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        
+                optimizer.step()
+                bar.next() # Update the progress bar
 
-            if time.time() - last_saving_time > saving_interval:
-                save_model(model, model_config, optimizer, sess_path)
-                last_saving_time = time.time()
+                if enable_logging:
+                    writer.add_scalar('model/loss', loss.item(), iteration)
+                    writer.add_scalar('model/norm', norm.item(), iteration)
+
+                logger.info(f'iter {iteration}, loss: {loss.item()}')
+
+                if time.time() - last_saving_time > saving_interval:
+                    save_model(model, model_config, optimizer, sess_path)
+                    last_saving_time = time.time()
+            
+            bar.finish()
 
     except KeyboardInterrupt:
         save_model(model, model_config, optimizer, sess_path)
 
 
+
+#========================================================================
+# Main
+#========================================================================
 
 def main():
 
@@ -296,6 +274,7 @@ def main():
 
     learning_rate = options.learning_rate
     batch_size = options.batch_size
+    num_epochs = options.num_epochs
     window_size = options.window_size
     stride_size = options.stride_size
     use_transposition = options.use_transposition
@@ -305,7 +284,6 @@ def main():
     enable_logging = options.enable_logging
 
     event_dim = EventSeq.dim()
-    control_dim = ControlSeq.dim()
     model_config = config.model
     model_params = utils.params2dict(options.model_params)
     model_config.update(model_params)
@@ -331,7 +309,6 @@ def main():
     logger.info(f'Device: {device}')
     print('-' * 70)
 
-    
     load_dataset(data_path)
 
     logger.info('Loading session')
@@ -344,7 +321,7 @@ def main():
     logger.info(dataset)
     print('-' * 70)
 
-    train_model(model, optimizer, dataset, batch_size, window_size, stride_size, event_dim, control_ratio, teacher_forcing_ratio, enable_logging, saving_interval, use_transposition, device, model_config, sess_path)
+    train_model(model, optimizer, dataset, batch_size, num_epochs, window_size, stride_size, event_dim, control_ratio, teacher_forcing_ratio, enable_logging, saving_interval, use_transposition, device, model_config, sess_path)
 
 
 if __name__ == '__main__':

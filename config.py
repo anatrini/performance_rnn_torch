@@ -16,6 +16,7 @@ model = {
 train = {
     'learning_rate': 0.001,
     'batch_size': 64,
+    'num_epochs': 100,
     'window_size': 200,
     'stride_size': 10,
     'use_transposition': False,

@@ -5,4 +5,5 @@
 *.MID
 *.sess
 *.data
+adversarial.py
 runs/

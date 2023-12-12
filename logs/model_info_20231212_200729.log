@@ -1,0 +1,40 @@
+2023-12-12 20:07:29,770 - INFO - Session path: save/maestro_2008_2011.sess
+2023-12-12 20:07:29,770 - INFO - Dataset path: dataset/processed/maestro_2008_2011
+2023-12-12 20:07:29,771 - INFO - Saving interval: 60.0
+2023-12-12 20:07:29,771 - INFO - Hyperparameters: init_dim=32,event_dim=240,control_dim=24,hidden_dim=512,gru_layers=3,gru_dropout=0.3
+2023-12-12 20:07:29,771 - INFO - Learning rate: 0.001
+2023-12-12 20:07:29,771 - INFO - Batch size: 128
+2023-12-12 20:07:29,771 - INFO - Window size: 200
+2023-12-12 20:07:29,771 - INFO - Stride size: 10
+2023-12-12 20:07:29,771 - INFO - Control ratio: 0.3
+2023-12-12 20:07:29,771 - INFO - Teacher forcing ratio: 1.0
+2023-12-12 20:07:29,771 - INFO - Random transposition: False
+2023-12-12 20:07:29,771 - INFO - Reset optimizer: False
+2023-12-12 20:07:29,771 - INFO - Enabling logging: False
+2023-12-12 20:07:29,771 - INFO - Device: cpu
+2023-12-12 20:07:30,279 - INFO - Loading session
+2023-12-12 20:07:30,279 - INFO - New session
+2023-12-12 20:07:30,484 - INFO - PerformanceRNN(
+  (inithid_fc): Linear(in_features=32, out_features=1536, bias=True)
+  (inithid_fc_activation): Tanh()
+  (event_embedding): Embedding(240, 240)
+  (concat_input_fc): Linear(in_features=265, out_features=512, bias=True)
+  (concat_input_fc_activation): LeakyReLU(negative_slope=0.1, inplace=True)
+  (gru): GRU(512, 512, num_layers=3, dropout=0.3)
+  (output_fc): Linear(in_features=1536, out_features=240, bias=True)
+  (output_fc_activation): Softmax(dim=-1)
+)
+2023-12-12 20:07:30,484 - INFO - Loading dataset
+2023-12-12 20:07:30,894 - INFO - Dataset(root="dataset/processed/maestro_2008_2011", samples=310, avglen=16159.593548387096)
+2023-12-12 20:08:07,063 - INFO - iter 0, loss: 5.484533786773682
+2023-12-12 20:08:43,304 - INFO - iter 1, loss: 5.365784168243408
+2023-12-12 20:09:19,476 - INFO - iter 2, loss: 5.193291664123535
+2023-12-12 20:09:56,046 - INFO - iter 3, loss: 5.222225189208984
+2023-12-12 20:10:32,978 - INFO - iter 4, loss: 5.070674419403076
+2023-12-12 20:11:09,119 - INFO - iter 5, loss: 5.024336338043213
+2023-12-12 20:11:46,013 - INFO - iter 6, loss: 5.06882905960083
+2023-12-12 20:12:22,995 - INFO - iter 7, loss: 5.040676116943359
+2023-12-12 20:13:01,815 - INFO - iter 8, loss: 5.011346340179443
+2023-12-12 20:13:42,555 - INFO - iter 9, loss: 4.984118461608887
+2023-12-12 20:14:34,322 - INFO - iter 10, loss: 4.951916694641113
+2023-12-12 20:15:26,466 - INFO - iter 11, loss: 4.966620922088623
