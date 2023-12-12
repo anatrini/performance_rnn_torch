@@ -56,19 +56,19 @@ This model is not implemented in the official way!
 
     ```shell
     # Preprocess all MIDI files under dataset/midi/NAME
-    python3 preprocess.py dataset/midi/NAME dataset/processed/NAME
+    python preprocess.py dataset/midi/NAME dataset/processed/NAME <no. of workers> # 0 to execute the process on a single thread
     ```
 
 - Training
 
     ```shell
     # Train on .data files in dataset/processed/MYDATA, and save to save/myModel.sess every 10s
-    python3 train.py -s save/myModel.sess -d dataset/processed/MYDATA -i 10
+    python train.py -s save/myModel.sess -d dataset/processed/MYDATA -i 10
 
     # Or...
-    python3 train.py -s save/myModel.sess -d dataset/processed/MYDATA -p hidden_dim=1024
-    python3 train.py -s save/myModel.sess -d dataset/processed/MYDATA -b 128 -c 0.3
-    python3 train.py -s save/myModel.sess -d dataset/processed/MYDATA -w 100 -S 10
+    python train.py -s save/myModel.sess -d dataset/processed/MYDATA -p hidden_dim=1024
+    python train.py -s save/myModel.sess -d dataset/processed/MYDATA -b 128 -c 0.3
+    python train.py -s save/myModel.sess -d dataset/processed/MYDATA -w 100 -S 10
     ```
 
     ![training-figure](https://user-images.githubusercontent.com/17045050/42135712-7f6e25f4-7d81-11e8-845f-682bd26a3abb.png)
@@ -105,10 +105,3 @@ This model is not implemented in the official way!
     - control_ratio: 0.7
     - dataset: [International Piano-e-Competition, recorded MIDI files](http://www.piano-e-competition.com/)
 
-## Requirements
-
-- pretty_midi
-- numpy
-- pytorch >= 0.4
-- tensorboardX
-- progress
