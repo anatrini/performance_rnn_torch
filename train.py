@@ -188,7 +188,7 @@ def train_model(model,
                 model_config,
                 sess_path
                 ):
-    print(f'Num epochs: {num_epochs}')
+
     if enable_logging:
         from torch.utils.tensorboard import SummaryWriter
         writer = SummaryWriter()
@@ -196,17 +196,13 @@ def train_model(model,
     last_saving_time = time.time()
     loss_function = nn.CrossEntropyLoss()
 
-    # Calculate number of batches per epoch
-    #sequences_per_samples = [np.ceil(())]
-    #print(f'len samples: {num_samples}')
 
     try:
         for epoch in range(num_epochs):
+
             # Create a progress bar for this epoch
-         
             batch_gen = dataset.batches(batch_size, window_size, stride_size)
             num_batches = dataset.get_length(batch_size, window_size, stride_size)
-            print(f'num batches: {num_batches}')
 
             # Create a progress bar
             pbar = tqdm(batch_gen, total=num_batches, desc=f'Progressing Epoch {epoch + 1}')
@@ -301,12 +297,9 @@ def main():
     model_config.update(model_params)
     device = config.device
 
-    print('-' * 70)
-
     logger.info(f'Session path: {sess_path}')
     logger.info(f'Dataset path: {data_path}')
     logger.info(f'Saving interval: {saving_interval}')
-    print('-' * 70)
 
     logger.info(f'Hyperparameters: {utils.dict2params(model_config)}')
     logger.info(f'Learning rate: {learning_rate}')
@@ -319,21 +312,19 @@ def main():
     logger.info(f'Reset optimizer: {reset_optimizer}')
     logger.info(f'Enabling logging: {enable_logging}')
     logger.info(f'Device: {device}')
-    print('-' * 70)
 
     load_dataset(data_path)
 
     logger.info('Loading session')
     model, optimizer = load_session(sess_path, model_config, device, learning_rate, reset_optimizer)
     logger.info(model)
-    print('-' * 70)
 
     logger.info('Loading dataset')
     dataset = load_dataset(data_path)
     logger.info(dataset)
-    print('-' * 70)
 
     train_model(model, optimizer, dataset, batch_size, num_epochs, window_size, stride_size, event_dim, control_ratio, teacher_forcing_ratio, enable_logging, saving_interval, use_transposition, device, model_config, sess_path)
+
 
 
 if __name__ == '__main__':
