@@ -4,6 +4,7 @@ from torch.distributions import Categorical, Gumbel
 
 import numpy as np
 from progress.bar import Bar
+from tqdm import tqdm
 from config import device
 
 
@@ -123,7 +124,8 @@ class PerformanceRNN(nn.Module):
         outputs = []
         step_iter = range(steps)
         if verbose:
-            step_iter = Bar('Generating').iter(step_iter)
+            #step_iter = Bar('Generating').iter(step_iter)
+            step_iter = tqdm(step_iter, desc='Generating')
 
         for step in step_iter:
             control = controls[step].unsqueeze(0) if use_control else None
@@ -183,7 +185,9 @@ class PerformanceRNN(nn.Module):
 
         step_iter = range(steps)
         if verbose:
-            step_iter = Bar(['', 'Stochastic '][stochastic] + 'Beam Search').iter(step_iter)
+            desc = ['', 'Stochastic '][stochastic] + 'Beam Search'
+            step_iter = tqdm(step_iter, desc=desc)
+            #step_iter = Bar(['', 'Stochastic '][stochastic] + 'Beam Search').iter(step_iter)
 
         for step in step_iter:
             if controls is not None:

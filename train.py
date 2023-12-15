@@ -313,8 +313,6 @@ def main():
     logger.info(f'Enabling logging: {enable_logging}')
     logger.info(f'Device: {device}')
 
-    load_dataset(data_path)
-
     logger.info('Loading session')
     model, optimizer = load_session(sess_path, model_config, device, learning_rate, reset_optimizer)
     logger.info(model)

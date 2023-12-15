@@ -1,10 +1,10 @@
 import os
 import torch
 import numpy as np
-from progress.bar import Bar
 
 import utils
 from sequence import ControlSeq
+from tqdm import tqdm
 
 
 
@@ -16,7 +16,7 @@ class Dataset:
         self.samples = []
         self.seqlens = []
         if verbose:
-            paths = Bar(root).iter(list(paths))
+            paths = tqdm(list(paths), desc=root)
         for path in paths:
             eventseq, controlseq = torch.load(path)
             controlseq = ControlSeq.recover_compressed_array(controlseq)
