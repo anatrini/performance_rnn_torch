@@ -120,7 +120,6 @@ def load_session(sess_path,
                 device,
                 learning_rate,
                 reset_optimizer):
-    #global sess_path, model_config, device, learning_rate, reset_optimizer
 
     try:
         sess = torch.load(sess_path)
@@ -198,14 +197,16 @@ def train_model(model,
     loss_function = nn.CrossEntropyLoss()
 
     # Calculate number of batches per epoch
-    num_samples = len(dataset.samples)
-    num_batches = num_samples // batch_size
+    #sequences_per_samples = [np.ceil(())]
+    #print(f'len samples: {num_samples}')
 
     try:
         for epoch in range(num_epochs):
             # Create a progress bar for this epoch
-            #print(f'Questa è epoch: {epoch + 1}')
+         
             batch_gen = dataset.batches(batch_size, window_size, stride_size)
+            num_batches = dataset.get_length(batch_size, window_size, stride_size)
+            print(f'num batches: {num_batches}')
 
             # Create a progress bar
             pbar = tqdm(batch_gen, total=num_batches, desc=f'Progressing Epoch {epoch + 1}')
@@ -249,6 +250,10 @@ def train_model(model,
                 nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         
                 optimizer.step()
+
+                # Update the tqdm bar with the current loss
+                pbar.update()
+                #pbar.set_postfix({'loss': loss.item()}, refresh=True)
 
                 if enable_logging:
                     writer.add_scalar('model/loss', loss.item(), iteration)

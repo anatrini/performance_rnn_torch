@@ -7,6 +7,7 @@ import utils
 from sequence import ControlSeq
 
 
+
 class Dataset:
     def __init__(self, root, verbose=False):
         assert os.path.isdir(root), root
@@ -23,6 +24,7 @@ class Dataset:
             self.samples.append((eventseq, controlseq))
             self.seqlens.append(len(eventseq))
         self.avglen = np.mean(self.seqlens)
+
     
     def batches(self, batch_size, window_size, stride_size):
         indeces = [(i, range(j, j + window_size))
@@ -40,7 +42,6 @@ class Dataset:
                 eventseq_batch.append(eventseq)
                 controlseq_batch.append(controlseq)
                 n += 1
-                #if n == batch_size:
                 if n == batch_size or ii == len(indeces) -1:
                     if n < batch_size:
                         # Padding
@@ -53,6 +54,13 @@ class Dataset:
                     controlseq_batch.clear()
                     n = 0
     
+
+    def get_length(self, batch_size, window_size, stride_size):
+        total_windows = sum((seqlen - window_size) // stride_size + 1 for seqlen in self.seqlens)
+        num_batches = total_windows // batch_size
+        return num_batches
+
+
     def __repr__(self):
         return (f'Dataset(root="{self.root}", '
                 f'samples={len(self.samples)}, '
