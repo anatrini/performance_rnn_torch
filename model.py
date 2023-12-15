@@ -3,7 +3,6 @@ import torch.nn as nn
 from torch.distributions import Categorical, Gumbel
 
 import numpy as np
-from progress.bar import Bar
 from tqdm import tqdm
 from config import device
 
