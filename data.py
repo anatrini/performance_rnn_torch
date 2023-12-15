@@ -40,7 +40,13 @@ class Dataset:
                 eventseq_batch.append(eventseq)
                 controlseq_batch.append(controlseq)
                 n += 1
-                if n == batch_size:
+                #if n == batch_size:
+                if n == batch_size or ii == len(indeces) -1:
+                    if n < batch_size:
+                        # Padding
+                        padding = batch_size - n
+                        eventseq_batch.extend([np.zeros_like(eventseq)] * padding)
+                        controlseq_batch.extend([np.zeros_like(controlseq)] * padding)
                     yield (np.stack(eventseq_batch, axis=1),
                            np.stack(controlseq_batch, axis=1))
                     eventseq_batch.clear()

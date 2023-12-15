@@ -5,5 +5,7 @@
 *.MID
 *.sess
 *.data
+*.log
 adversarial.py
+dataset/midi/*
 runs/
