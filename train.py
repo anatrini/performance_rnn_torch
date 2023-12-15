@@ -18,7 +18,6 @@ logger.addHandler(handler)
 #========================================================================
 
 import config
-import math
 import numpy as np
 import optparse
 import torch
@@ -28,8 +27,9 @@ import utils
 
 from data import Dataset
 from model import PerformanceRNN
-from progress.bar import Bar
+#from progress.bar import Bar
 from sequence import EventSeq
+from tqdm import tqdm
 #========================================================================
 # Settings
 #========================================================================
@@ -189,7 +189,7 @@ def train_model(model,
                 model_config,
                 sess_path
                 ):
-    
+    print(f'Num epochs: {num_epochs}')
     if enable_logging:
         from torch.utils.tensorboard import SummaryWriter
         writer = SummaryWriter()
@@ -198,17 +198,24 @@ def train_model(model,
     loss_function = nn.CrossEntropyLoss()
 
     # Calculate number of batches per epoch
-    num_batches = math.ceil(len(dataset.samples) / batch_size)
+    num_samples = len(dataset.samples)
+    num_batches = num_samples // batch_size
+    last_batch_size = num_samples % batch_size
+    #print(f'Batch stuff: {num_samples}, {num_batches, {last_batch_size}}')
 
     try:
         for epoch in range(num_epochs):
             # Create a progress bar for this epoch
-            print(f'Questa è epoch: {epoch}')
+            print(f'Questa è epoch: {epoch + 1}')
             batch_gen = dataset.batches(batch_size, window_size, stride_size)
-            #num_batches = math.ceil(len(dataset.samples) / batch_size)
-            bar = Bar(f'Processing Epoch {epoch + 1}', max=num_batches)
+            #bar = Bar(f'Processing Epoch {epoch + 1}', max=num_batches)
+
+            # Create a progress bar
+            pbar = tqdm(batch_gen, total=num_batches, desc=f'Progressing Epoch {epoch + 1}')
         
-            for iteration, (events, controls) in enumerate(batch_gen):
+            for iteration, (events, controls) in enumerate(pbar):
+                print(f'events shape: {events.shape}')
+                print(f'controls shape: {controls.shape}')
                 if use_transposition:
                     offset = np.random.choice(np.arange(-6, 6))
                     events, controls = utils.transposition(events, controls, offset)
@@ -221,10 +228,22 @@ def train_model(model,
                     assert controls.shape[0] == window_size
                 else:
                     controls = None
+                
+                # Check if current batch is the last and if it has less samples
+                if iteration == num_batches - 1 and last_batch_size > 0:
+                    print(f'Condition met!')
+                    # Adjust your events and controls here to account for the smaller batch size
+                    events = events[:last_batch_size]
+                    print(f'events shape last batch: {events.shape}')
+                    if controls is not None:
+                        controls = controls[:last_batch_size]
 
                 init = torch.randn(batch_size, model.init_dim).to(device)
+                steps_to_generate = min(window_size, events.shape[0])
+                print(f'steps_to_generate: {steps_to_generate}')
+                #print(f'controls shape: {controls.shape}')
                 outputs = model.generate(init, 
-                                        window_size, 
+                                        steps_to_generate, 
                                         events=events[:-1], 
                                         controls=controls,
                                         teacher_forcing_ratio=teacher_forcing_ratio, 
@@ -241,7 +260,7 @@ def train_model(model,
                 nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         
                 optimizer.step()
-                bar.next() # Update the progress bar
+                #bar.next() # Update the progress bar
 
                 if enable_logging:
                     writer.add_scalar('model/loss', loss.item(), iteration)
@@ -253,7 +272,7 @@ def train_model(model,
                     save_model(model, model_config, optimizer, sess_path)
                     last_saving_time = time.time()
             
-            bar.finish()
+            pbar.close()
 
     except KeyboardInterrupt:
         save_model(model, model_config, optimizer, sess_path)

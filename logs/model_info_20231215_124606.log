@@ -1,0 +1,29 @@
+2023-12-15 12:46:07,012 - INFO - Session path: save/maestro_2008_2011.sess
+2023-12-15 12:46:07,012 - INFO - Dataset path: dataset/processed/maestro_2008_2011
+2023-12-15 12:46:07,012 - INFO - Saving interval: 60.0
+2023-12-15 12:46:07,012 - INFO - Hyperparameters: init_dim=32,event_dim=240,control_dim=24,hidden_dim=512,gru_layers=3,gru_dropout=0.3
+2023-12-15 12:46:07,012 - INFO - Learning rate: 0.001
+2023-12-15 12:46:07,012 - INFO - Batch size: 128
+2023-12-15 12:46:07,012 - INFO - Window size: 200
+2023-12-15 12:46:07,012 - INFO - Stride size: 10
+2023-12-15 12:46:07,012 - INFO - Control ratio: 0.3
+2023-12-15 12:46:07,012 - INFO - Teacher forcing ratio: 1.0
+2023-12-15 12:46:07,012 - INFO - Random transposition: False
+2023-12-15 12:46:07,012 - INFO - Reset optimizer: False
+2023-12-15 12:46:07,012 - INFO - Enabling logging: False
+2023-12-15 12:46:07,012 - INFO - Device: cpu
+2023-12-15 12:46:07,405 - INFO - Loading session
+2023-12-15 12:46:07,417 - INFO - Session is loaded from save/maestro_2008_2011.sess
+2023-12-15 12:46:07,594 - INFO - PerformanceRNN(
+  (inithid_fc): Linear(in_features=32, out_features=1536, bias=True)
+  (inithid_fc_activation): Tanh()
+  (event_embedding): Embedding(240, 240)
+  (concat_input_fc): Linear(in_features=265, out_features=512, bias=True)
+  (concat_input_fc_activation): LeakyReLU(negative_slope=0.1, inplace=True)
+  (gru): GRU(512, 512, num_layers=3, dropout=0.3)
+  (output_fc): Linear(in_features=1536, out_features=240, bias=True)
+  (output_fc_activation): Softmax(dim=-1)
+)
+2023-12-15 12:46:07,594 - INFO - Loading dataset
+2023-12-15 12:46:07,931 - INFO - Dataset(root="dataset/processed/maestro_2008_2011", samples=310, avglen=16159.593548387096)
+2023-12-15 12:46:40,124 - INFO - iter 0, loss: 3.546576499938965
