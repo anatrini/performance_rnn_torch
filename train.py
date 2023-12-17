@@ -8,12 +8,17 @@ logger.setLevel(logging.INFO)
 # Set a handler to write info on a file with a timestamp
 now = time.time()
 timestamp = time.strftime("%Y%m%d_%H%M%S", time.localtime(now))
-handler = logging.FileHandler(f'logs/model_info_{timestamp}.log')
+file_handler = logging.FileHandler(f'logs/model_info_{timestamp}.log')
+
+# Set another handler to display training info on the console
+console_handler = logging.StreamHandler()
 
 # Set a formatter and add it to the logger
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+
+logger.addHandler(console_handler)
 
 #========================================================================
 
