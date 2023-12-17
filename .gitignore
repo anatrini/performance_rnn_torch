@@ -8,4 +8,6 @@
 *.log
 adversarial.py
 dataset/midi/*
+save/*
 runs/
+**/.gitkeep

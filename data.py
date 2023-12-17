@@ -1,3 +1,4 @@
+import copy
 import os
 import torch
 import numpy as np
@@ -25,11 +26,29 @@ class Dataset:
             self.seqlens.append(len(eventseq))
         self.avglen = np.mean(self.seqlens)
 
-    
-    def batches(self, batch_size, window_size, stride_size):
+
+    def train_test_split(self, test_size=0.2):
+        # Check test length
+        num_test = int(test_size * len(self.samples))
+
+        train_data = copy.deepcopy(self)
+        test_data = copy.deepcopy(self)
+
+        # Split data
+        train_data.samples = self.samples[:-num_test]
+        train_data.seqlens = self.seqlens[:-num_test]
+        test_data.samples = self.samples[-num_test:]
+        test_data.seqlens = self.seqlens[-num_test:]
+
+        return train_data, test_data
+
+ 
+    def batches(self, batch_size, seqlens, window_size, stride_size):
         indeces = [(i, range(j, j + window_size))
-                   for i, seqlen in enumerate(self.seqlens)
+                   for i, seqlen in enumerate(seqlens) # il problema è forse qui
                    for j in range(0, seqlen - window_size, stride_size)]
+        #max_index = max(i for i, _ in indeces)
+        #print(f"Indice più alto: {max_index}")
         while True:
             eventseq_batch = []
             controlseq_batch = []
@@ -39,6 +58,7 @@ class Dataset:
                 eventseq, controlseq = self.samples[i]
                 eventseq = eventseq[r.start:r.stop]
                 controlseq = controlseq[r.start:r.stop]
+                #print(f'Eventseq: {eventseq}')
                 eventseq_batch.append(eventseq)
                 controlseq_batch.append(controlseq)
                 n += 1
@@ -55,8 +75,8 @@ class Dataset:
                     n = 0
     
 
-    def get_length(self, batch_size, window_size, stride_size):
-        total_windows = sum((seqlen - window_size) // stride_size + 1 for seqlen in self.seqlens)
+    def get_length(self, batch_size, seqlens, window_size, stride_size):
+        total_windows = sum((seqlen - window_size) // stride_size + 1 for seqlen in seqlens)
         num_batches = total_windows // batch_size
         return num_batches
 
