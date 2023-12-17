@@ -1,7 +1,7 @@
-import torch
 import numpy as np
 import os
 import optparse
+import torch
 
 import utils
 from config import device, model as model_config

@@ -2,23 +2,23 @@ import time
 import logging
 
 ### Set a logger
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+# logger = logging.getLogger(__name__)
+# logger.setLevel(logging.INFO)
 
-# Set a handler to write info on a file with a timestamp
-now = time.time()
-timestamp = time.strftime("%Y%m%d_%H%M%S", time.localtime(now))
-file_handler = logging.FileHandler(f'logs/model_info_{timestamp}.log')
+# # Set a handler to write info on a file with a timestamp
+# now = time.time()
+# timestamp = time.strftime("%Y%m%d_%H%M%S", time.localtime(now))
+# file_handler = logging.FileHandler(f'logs/model_info_{timestamp}.log')
 
-# Set another handler to display training info on the console
-console_handler = logging.StreamHandler()
+# # Set another handler to display training info on the console
+# console_handler = logging.StreamHandler()
 
-# Set a formatter and add it to the logger
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
+# # Set a formatter and add it to the logger
+# formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+# file_handler.setFormatter(formatter)
+# logger.addHandler(file_handler)
 
-logger.addHandler(console_handler)
+# logger.addHandler(console_handler)
 
 #========================================================================
 
@@ -32,15 +32,18 @@ import utils
 
 from data import Dataset
 from early_stopping import EarlyStopping
+from logger import setup_logger
 from model import PerformanceRNN
 from sequence import EventSeq
 from tqdm import tqdm
 
 
+logger = setup_logger('Training logger', file=True)
 
 #========================================================================
 ##### Settings
 #========================================================================
+
 
 def get_options():
     parser = optparse.OptionParser()
@@ -271,7 +274,7 @@ def train_model(model,
 
                 # Update the tqdm bar with the current loss
                 pbar.update()
-                #pbar.set_postfix({'loss': loss.item()}, refresh=True)
+                pbar.set_postfix({'loss': train_loss.item()}, refresh=True)
 
                 if enable_logging:
                     writer.add_scalar('model/loss', train_loss.item(), iteration)
@@ -283,11 +286,11 @@ def train_model(model,
                     save_model(model, model_config, optimizer, sess_path)
                     last_saving_time = time.time()
 
-                # Create a validation batch
+                # Create a validation batch and convert values to tensors
                 test_events, test_controls = next(iter(test_data.batches(batch_size, test_seqlens, window_size, stride_size)))
                 test_events = torch.LongTensor(test_events).to(device)
                 test_controls = torch.LongTensor(test_controls).to(device)
-                #test_events, test_controls = test_data.batches(batch_size, test_seqlens, window_size, stride_size)
+                
                 # Compute validation loss
                 val_loss = loss_update(init, window_size, test_events, event_dim, test_controls, model, loss_function, teacher_forcing_ratio)
 

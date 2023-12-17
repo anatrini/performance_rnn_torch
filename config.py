@@ -3,6 +3,7 @@ import torch
 from sequence import EventSeq, ControlSeq
 
 
+
 #========================================================================
 ##### Set device according to OS and available devices
 #========================================================================
@@ -14,6 +15,7 @@ if platform.system() == 'Darwin':  # Mac OS
         device = torch.device('cpu')
 else:  # Linux o Windows
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 
 
 #========================================================================
