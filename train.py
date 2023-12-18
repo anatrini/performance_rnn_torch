@@ -1,5 +1,4 @@
-import time
-import logging
+
 
 ### Set a logger
 # logger = logging.getLogger(__name__)
@@ -25,6 +24,7 @@ import logging
 import config
 import numpy as np
 import optparse
+import time
 import torch
 from torch import nn
 from torch import optim
@@ -183,15 +183,16 @@ def save_model(model, model_config, optimizer, sess_path):
 #========================================================================
 
 def loss_update(init, 
-                    window_size, 
-                    events, 
-                    event_dim,
-                    controls, 
-                    model, 
-                    loss_function,
-                    teacher_forcing_ratio
-                    ):
-    
+                window_size, 
+                events, 
+                event_dim,
+                controls, 
+                model, 
+                loss_function,
+                teacher_forcing_ratio
+                ):
+
+    #print(f'Model: {model}')
     outputs = model.generate(init, window_size, events=events[:-1], controls=controls, teacher_forcing_ratio=teacher_forcing_ratio, output_type='logit')
     
     assert outputs.shape[:2] == events.shape[:2]
@@ -201,6 +202,10 @@ def loss_update(init,
     # Apply mask to loss calculation and normalize loss
     loss = loss_function(outputs.view(-1, event_dim), events.view(-1)) * mask
     loss = loss.sum() / mask.sum()
+    #print(f'Outputs: {outputs}')
+    #print(f'Events: {events[:-1]}')
+    #print(f'Controls: {controls}')
+    #print(f'Loss: {loss}')
 
     return loss
     
@@ -231,8 +236,6 @@ def train_model(model,
     early_stopping = EarlyStopping(patience=10, verbose=True)
 
     train_data, test_data = dataset.train_test_split(test_size=0.2)
-    train_seqlens = train_data.seqlens
-    test_seqlens = test_data.seqlens
 
     last_saving_time = time.time()
     loss_function = nn.CrossEntropyLoss()
@@ -241,13 +244,15 @@ def train_model(model,
         for epoch in range(num_epochs):
 
             # Create a progress bar for this epoch
-            batch_gen = train_data.batches(batch_size, train_seqlens, window_size, stride_size)
-            num_batches = train_data.get_length(batch_size, train_seqlens, window_size, stride_size)
+            batch_gen = train_data.batches(batch_size, window_size, stride_size)
+            num_batches = train_data.get_length(batch_size, window_size, stride_size)
 
             # Create a progress bar
             pbar = tqdm(batch_gen, total=num_batches, desc=f'Progressing Epoch {epoch + 1}')
         
             for iteration, (events, controls) in enumerate(pbar):
+                if np.isnan(events).any() or (controls is not None and np.isnan(controls).any()):
+                    print(f'nan found in training sample {iteration}')
                 if use_transposition:
                     offset = np.random.choice(np.arange(-6, 6))
                     events, controls = utils.transposition(events, controls, offset)
@@ -260,9 +265,10 @@ def train_model(model,
                     assert controls.shape[0] == window_size
                 else:
                     controls = None
+                    
 
                 init = torch.randn(batch_size, model.init_dim).to(device)
-
+                
                 train_loss = loss_update(init, window_size, events, event_dim, controls, model, loss_function, teacher_forcing_ratio)
                 model.zero_grad()
                 train_loss.backward()
@@ -280,14 +286,14 @@ def train_model(model,
                     writer.add_scalar('model/loss', train_loss.item(), iteration)
                     writer.add_scalar('model/norm', norm.item(), iteration)
 
-                logger.info(f'iter {iteration}, loss: {train_loss.item()}')
+                logger.info(f'iter {iteration}')
 
                 if time.time() - last_saving_time > saving_interval:
                     save_model(model, model_config, optimizer, sess_path)
                     last_saving_time = time.time()
 
                 # Create a validation batch and convert values to tensors
-                test_events, test_controls = next(iter(test_data.batches(batch_size, test_seqlens, window_size, stride_size)))
+                test_events, test_controls = next(iter(test_data.batches(batch_size, window_size, stride_size)))
                 test_events = torch.LongTensor(test_events).to(device)
                 test_controls = torch.LongTensor(test_controls).to(device)
                 
