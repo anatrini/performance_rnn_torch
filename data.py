@@ -51,29 +51,29 @@ class Dataset:
         indeces = [(i, range(j, j + window_size))
                    for i, seqlen in enumerate(self.seqlens) 
                    for j in range(0, seqlen - window_size, stride_size)]
-        while True:
-            eventseq_batch = []
-            controlseq_batch = []
-            n = 0
-            for ii in np.random.permutation(len(indeces)):
-                i, r = indeces[ii]
-                eventseq, controlseq = self.samples[i]
-                eventseq = eventseq[r.start:r.stop]
-                controlseq = controlseq[r.start:r.stop]
-                eventseq_batch.append(eventseq)
-                controlseq_batch.append(controlseq)
-                n += 1
+        eventseq_batch = []
+        controlseq_batch = []
+        n = 0
+        for ii in np.random.permutation(len(indeces)):
+            i, r = indeces[ii]
+            eventseq, controlseq = self.samples[i]
+            eventseq = eventseq[r.start:r.stop]
+            controlseq = controlseq[r.start:r.stop]
+            eventseq_batch.append(eventseq)
+            controlseq_batch.append(controlseq)
+            n += 1
+            if n == batch_size:
                 if n == batch_size or ii == len(indeces) -1:
                     if n < batch_size:
                         # Padding
                         padding = batch_size - n
                         eventseq_batch.extend([np.zeros_like(eventseq)] * padding)
                         controlseq_batch.extend([np.zeros_like(controlseq)] * padding)
-                    yield (np.stack(eventseq_batch, axis=1),
-                           np.stack(controlseq_batch, axis=1))
-                    eventseq_batch.clear()
-                    controlseq_batch.clear()
-                    n = 0
+                yield (np.stack(eventseq_batch, axis=1),
+                       np.stack(controlseq_batch, axis=1))
+                eventseq_batch.clear()
+                controlseq_batch.clear()
+                n = 0
     
 
     def get_length(self, batch_size, window_size, stride_size):

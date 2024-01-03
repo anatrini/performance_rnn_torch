@@ -188,7 +188,7 @@ def loss_update(init,
 
     # Create padding mask
     mask = (events.view(-1) != 0).float()
-    # Apply mask to loss calculation and normalize loss
+    # # Apply mask to loss calculation and normalize loss
     loss = loss_function(outputs.view(-1, event_dim), events.view(-1)) * mask
     loss = loss.sum() / mask.sum()
 
@@ -264,14 +264,11 @@ def train_model(model,
                 optimizer.step()
 
                 # Update the tqdm bar with the current loss
-                #pbar.update()
                 pbar.set_postfix({'loss': train_loss.item()}, refresh=True)
 
                 if enable_logging:
                     writer.add_scalar('model/loss', train_loss.item(), iteration)
                     writer.add_scalar('model/norm', norm.item(), iteration)
-
-                logger.info(f'iter {iteration}')
 
                 if time.time() - last_saving_time > saving_interval:
                     save_model(model, model_config, optimizer, sess_path)
