@@ -5,8 +5,12 @@ import torch
 
 import utils
 from config import device, model as model_config
+from logger import setup_logger
 from model import PerformanceRNN
 from sequence import Control, ControlSeq
+
+
+logger = setup_logger('Generator logger')
 
 
 # ========================================================================

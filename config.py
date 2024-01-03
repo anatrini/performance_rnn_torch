@@ -31,6 +31,7 @@ model = {
     'gru_dropout': 0.3,
 }
 
+
 train = {
     'batch_size': 64,
     'num_epochs': 100,

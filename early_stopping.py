@@ -1,7 +1,8 @@
+import config
 import numpy as np
 
 class EarlyStopping:
-    def __init__(self, patience=10, verbose=False, delta=0):
+    def __init__(self, patience=config.train['early_stopping_patience'], verbose=False, delta=0):
         self.patience = patience
         self.verbose = verbose
         self.counter = 0

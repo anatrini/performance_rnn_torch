@@ -238,8 +238,6 @@ def train_model(model,
             pbar = tqdm(batch_gen, total=num_batches, desc=f'Progressing Epoch {epoch + 1}')
         
             for iteration, (events, controls) in enumerate(pbar):
-                # if np.isnan(events).any() or (controls is not None and np.isnan(controls).any()):
-                #     print(f'nan found in training sample {iteration}')
                 if use_transposition:
                     offset = np.random.choice(np.arange(-6, 6))
                     events, controls = utils.transposition(events, controls, offset)
@@ -266,7 +264,7 @@ def train_model(model,
                 optimizer.step()
 
                 # Update the tqdm bar with the current loss
-                pbar.update()
+                #pbar.update()
                 pbar.set_postfix({'loss': train_loss.item()}, refresh=True)
 
                 if enable_logging:
@@ -281,11 +279,9 @@ def train_model(model,
             
             pbar.close()
 
-            # Create a validation batch and convert values to tensors
             # After each epoch, evaluate the model on the entire test set
             val_losses = []
             for test_events, test_controls in test_data.batches(batch_size, window_size, stride_size):
-                #test_events, test_controls = next(iter(test_data.batches(batch_size, window_size, stride_size)))
                 test_events = torch.LongTensor(test_events).to(device)
                 test_controls = torch.LongTensor(test_controls).to(device)
                 
@@ -301,10 +297,6 @@ def train_model(model,
                 if early_stopping.early_stop:
                     logger.info(f'Early stopping!')
                     break
-
-            # # If early stopping has been called stop epochs as well
-            # if early_stopping.early_stop:
-            #     break
 
     except KeyboardInterrupt:
         save_model(model, model_config, optimizer, sess_path)
