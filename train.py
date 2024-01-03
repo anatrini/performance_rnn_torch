@@ -1,26 +1,3 @@
-
-
-### Set a logger
-# logger = logging.getLogger(__name__)
-# logger.setLevel(logging.INFO)
-
-# # Set a handler to write info on a file with a timestamp
-# now = time.time()
-# timestamp = time.strftime("%Y%m%d_%H%M%S", time.localtime(now))
-# file_handler = logging.FileHandler(f'logs/model_info_{timestamp}.log')
-
-# # Set another handler to display training info on the console
-# console_handler = logging.StreamHandler()
-
-# # Set a formatter and add it to the logger
-# formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-# file_handler.setFormatter(formatter)
-# logger.addHandler(file_handler)
-
-# logger.addHandler(console_handler)
-
-#========================================================================
-
 import config
 import numpy as np
 import optparse
@@ -39,6 +16,8 @@ from tqdm import tqdm
 
 
 logger = setup_logger('Training logger', file=True)
+
+
 
 #========================================================================
 ##### Settings
@@ -178,6 +157,7 @@ def save_model(model, model_config, optimizer, sess_path):
     logger.info('Done saving')
 
 
+
 #========================================================================
 ##### Training
 #========================================================================
@@ -192,7 +172,6 @@ def loss_update(init,
                 teacher_forcing_ratio
                 ):
 
-    #print(f'Model: {model}')
     outputs = model.generate(init, window_size, events=events[:-1], controls=controls, teacher_forcing_ratio=teacher_forcing_ratio, output_type='logit')
     
     assert outputs.shape[:2] == events.shape[:2]
@@ -202,10 +181,6 @@ def loss_update(init,
     # Apply mask to loss calculation and normalize loss
     loss = loss_function(outputs.view(-1, event_dim), events.view(-1)) * mask
     loss = loss.sum() / mask.sum()
-    #print(f'Outputs: {outputs}')
-    #print(f'Events: {events[:-1]}')
-    #print(f'Controls: {controls}')
-    #print(f'Loss: {loss}')
 
     return loss
     
@@ -233,7 +208,7 @@ def train_model(model,
         from torch.utils.tensorboard import SummaryWriter
         writer = SummaryWriter()
 
-    early_stopping = EarlyStopping(patience=10, verbose=True)
+    early_stopping = EarlyStopping(patience=20, verbose=True)
 
     train_data, test_data = dataset.train_test_split(test_size=0.2)
 
