@@ -42,5 +42,6 @@ train = {
     'early_stopping_patience': 10,
     'use_transposition': False,
     'control_ratio': 1.0,
-    'teacher_forcing_ratio': 1.0
+    'teacher_forcing_ratio': 1.0,
+    'saving_interval': 180 # Saving interval in seconds
 }

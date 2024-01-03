@@ -40,7 +40,7 @@ def get_options():
     parser.add_option('-i', '--saving-interval',
                       dest='saving_interval',
                       type='float',
-                      default=60.)
+                      default=config.train['saving_interval'])
 
     parser.add_option('-b', '--batch-size',
                       dest='batch_size',
