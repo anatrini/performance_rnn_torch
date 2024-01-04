@@ -5,7 +5,7 @@ from sequence import EventSeq, ControlSeq
 
 
 #========================================================================
-##### Set device according to OS and available devices
+# Set device according to OS and available devices
 #========================================================================
 
 if platform.system() == 'Darwin':  # Mac OS
@@ -19,7 +19,7 @@ else:  # Linux o Windows
 
 
 #========================================================================
-##### Model's and train settings
+# Model's, train and generation settings
 #========================================================================
 
 model = {
@@ -44,4 +44,15 @@ train = {
     'control_ratio': 1.0,
     'teacher_forcing_ratio': 1.0,
     'saving_interval': 180 # Saving interval in seconds
+}
+
+
+generate = {
+    'batch_size': 8,
+    'max_len': 1000,
+    'greedy_ratio': 1.0,
+    'beam_size': 0,
+    'temperature': 1.0,
+    'stochastic_beam_search': False,
+    'init_zero': False
 }

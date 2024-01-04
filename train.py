@@ -20,7 +20,7 @@ logger = setup_logger('Training logger', file=True)
 
 
 #========================================================================
-##### Settings
+# Settings
 #========================================================================
 
 
@@ -112,7 +112,7 @@ def get_options():
 
 
 #========================================================================
-##### Load session and dataset
+# Load session and dataset
 #========================================================================
 
 # Function to load the model and optimizer states if a session exists
@@ -151,7 +151,6 @@ def load_session(sess_path,
 
 # Function to load the dataset
 def load_dataset(data_path):
-    #global data_path
     dataset = Dataset(data_path, verbose=True)
     dataset_size = len(dataset.samples)
     assert dataset_size > 0
@@ -169,7 +168,7 @@ def save_model(model, model_config, optimizer, sess_path):
 
 
 #========================================================================
-##### Training
+# Training
 #========================================================================
 
 def loss_update(init, 
@@ -301,7 +300,7 @@ def train_model(model,
 
 
 #========================================================================
-##### Main
+# Main
 #========================================================================
 
 def main():
