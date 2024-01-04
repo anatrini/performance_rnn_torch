@@ -1,12 +1,18 @@
+import hashlib
 import os
 import sys
 import torch
-import hashlib
-from progress.bar import Bar
-from concurrent.futures import ProcessPoolExecutor
-
-from sequence import NoteSeq, EventSeq, ControlSeq
 import utils
+
+from concurrent.futures import ProcessPoolExecutor
+from logger import setup_logger
+from sequence import NoteSeq, EventSeq, ControlSeq
+from tqdm import tqdm
+
+
+logger = setup_logger('Preprocess logger')
+
+
 
 def preprocess_midi(path):
     note_seq = NoteSeq.from_midi_file(path)
@@ -27,23 +33,25 @@ def preprocess_midi_files_under(midi_root, save_dir, num_workers):
         try:
             results.append((path, executor.submit(preprocess_midi, path)))
         except KeyboardInterrupt:
-            print(' Abort')
+            logger.info(' Abort')
             return
         except:
-            print(' Error')
+            logger.error(' Error')
             continue
     
-    for path, future in Bar('Processing').iter(results):
-        print(' ', end='[{}]'.format(path), flush=True)
+    for path, future in tqdm(results, desc='Processing'):
+        logger.info(f' [{path}]', end='', flush=True)
         name = os.path.basename(path)
         code = hashlib.md5(path.encode()).hexdigest()
-        save_path = os.path.join(save_dir, out_fmt.format(name, code))
+        save_path = os.path.join(save_dir, f'{name}-{code}.data')
         torch.save(future.result(), save_path)
 
-    print('Done')
+    logger.info('Done')
+
+
 
 if __name__ == '__main__':
-    preprocess_midi_files_under(
-            midi_root=sys.argv[1],
-            save_dir=sys.argv[2],
-            num_workers=int(sys.argv[3]))
+    preprocess_midi_files_under(midi_root=sys.argv[1],
+                                save_dir=sys.argv[2],
+                                num_workers=int(sys.argv[3])
+                                )

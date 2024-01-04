@@ -2,7 +2,11 @@ import numpy as np
 import copy
 import itertools
 import collections
+
+from logger import setup_logger
 from pretty_midi import PrettyMIDI, Note, Instrument
+
+logger = setup_logger('Sequence logger')
 
 
 # ==================================================================================
@@ -130,8 +134,7 @@ class Event:
         self.value = value
 
     def __repr__(self):
-        return 'Event(type={}, time={}, value={})'.format(
-            self.type, self.time, self.value)
+        return f'Event(type={self.type}, time={self.time}, value={self.value})'
 
 
 class EventSeq:
@@ -296,8 +299,7 @@ class Control:
         self.note_density = note_density  # int
 
     def __repr__(self):
-        return 'Control(pitch_histogram={}, note_density={})'.format(
-            self.pitch_histogram, self.note_density)
+        return f'Control(pitch_histogram={self.pitch_histogram}, note_density={self.note_density})'
 
     def to_array(self):
         feat_dims = ControlSeq.feat_dims()
@@ -308,7 +310,6 @@ class Control:
 
 
 class ControlSeq:
-
     note_density_bins = DEFAULT_NOTE_DENSITY_BINS
     window_size = DEFAULT_WINDOW_SIZE
 
@@ -345,15 +346,11 @@ class ControlSeq:
                     note_count += 1.
                 end += 1
 
-            pitch_histogram = (
-                pitch_count / note_count
-                if note_count
-                else np.ones([12]) / 12
-            ).tolist()
+            pitch_histogram = (pitch_count / note_count if note_count else np.ones([12]) / 12).tolist()
 
-            note_density = max(np.searchsorted(
-                ControlSeq.note_density_bins,
-                note_count, side='right') - 1, 0)
+            note_density = max(np.searchsorted(ControlSeq.note_density_bins,
+                                               note_count, 
+                                               side='right') - 1, 0)
 
             controls.append(Control(pitch_histogram, note_density))
 
@@ -366,10 +363,7 @@ class ControlSeq:
     @staticmethod
     def feat_dims():
         note_density_dim = len(ControlSeq.note_density_bins)
-        return collections.OrderedDict([
-            ('pitch_histogram', 12),
-            ('note_density', note_density_dim)
-        ])
+        return collections.OrderedDict([('pitch_histogram', 12), ('note_density', note_density_dim)])
 
     @staticmethod
     def feat_ranges():
@@ -399,31 +393,30 @@ class ControlSeq:
         ndens = np.array(ndens, dtype=np.uint8).reshape(-1, 1)
         phist = [control.pitch_histogram for control in self.controls]
         phist = (np.array(phist) * 255).astype(np.uint8)
-        return np.concatenate([
-            ndens,  # [steps, 1] density index
-            phist  # [steps, hist_dim] 0-255
-        ], 1)  # [steps, hist_dim + 1]
+        return np.concatenate([ndens,  # [steps, 1] density index
+                               phist],  # [steps, hist_dim] 0-255
+                               1
+                               )  # [steps, hist_dim + 1]
 
 
 if __name__ == '__main__':
     import pickle
     import sys
-    path = sys.argv[1] if len(sys.argv) > 1 else 'dataset/midi/ecomp/BLINOV02.mid'
+    path = sys.argv[1] if len(sys.argv) > 1 else logger.error('No path to a .mid file has been passed!')
 
-    print('Converting MIDI to EventSeq')
+    logger.info('Converting MIDI to EventSeq')
     es = EventSeq.from_note_seq(NoteSeq.from_midi_file(path))
 
-    print('Converting EventSeq to MIDI')
+    logger.info('Converting EventSeq to MIDI')
     EventSeq.from_array(es.to_array()).to_note_seq().to_midi_file('/tmp/test.mid')
 
-    print('Converting EventSeq to ControlSeq')
+    logger.info('Converting EventSeq to ControlSeq')
     cs = ControlSeq.from_event_seq(es)
 
-    print('Saving compressed ControlSeq')
+    logger.info('Saving compressed ControlSeq')
     pickle.dump(cs.to_compressed_array(), open('/tmp/cs-compressed.data', 'wb'))
 
-    print('Loading compressed ControlSeq')
-    c = ControlSeq.recover_compressed_array(
-        pickle.load(open('/tmp/cs-compressed.data', 'rb')))
+    logger.info('Loading compressed ControlSeq')
+    c = ControlSeq.recover_compressed_array(pickle.load(open('/tmp/cs-compressed.data', 'rb')))
 
-    print('Done')
+    logger.info('Done')

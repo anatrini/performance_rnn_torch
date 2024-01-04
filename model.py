@@ -54,8 +54,8 @@ class PerformanceRNN(nn.Module):
             return Categorical(probs).sample()
 
     def forward(self, event, control=None, hidden=None):
-        # One step forward
 
+        # One step forward
         assert len(event.shape) == 2
         assert event.shape[0] == 1
         batch_size = event.shape[1]
@@ -209,13 +209,7 @@ class PerformanceRNN(nn.Module):
             if stochastic:
                 beam_log_prob_expand_perturbed = beam_log_prob_expand + gumbel_dist.sample(beam_log_prob_expand.shape)
                 beam_log_prob_Z, _ = beam_log_prob_expand_perturbed.max(-1) # [1, batch, cbeam]
-                # print(beam_log_prob_Z)
                 beam_log_prob_expand_perturbed_normalized = beam_log_prob_expand_perturbed
-                # beam_log_prob_expand_perturbed_normalized = -torch.log(
-                #     torch.exp(-beam_log_prob_perturbed[None, :, :, None])
-                #     - torch.exp(-beam_log_prob_Z[:, :, :, None])
-                #     + torch.exp(-beam_log_prob_expand_perturbed)) # [1, batch, cbeam, out]
-                # beam_log_prob_expand_perturbed_normalized = beam_log_prob_perturbed[None, :, :, None] + beam_log_prob_expand_perturbed # [1, batch, cbeam, out]
                 
                 beam_log_prob_expand_perturbed_normalized_batch = \
                     beam_log_prob_expand_perturbed_normalized.view(1, batch_size, -1) # [1, batch, cbeam*out]

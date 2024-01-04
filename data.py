@@ -31,8 +31,6 @@ class Dataset:
         # Check test length
         num_test = int(test_size * len(self.samples))
 
-        #print(f'Dataset: {self.samples}')
-
         # Split data
         train_data = Dataset(self.root)
         train_data.samples = self.samples[:-num_test]
@@ -41,8 +39,6 @@ class Dataset:
         test_data = Dataset(self.root)
         test_data.samples = self.samples[-num_test:]
         test_data.seqlens = self.seqlens[-num_test:]
-        #print(f'Train: {train_data.samples}')
-        #print(f'Test: {test_data.samples}')
 
         return train_data, test_data
 
@@ -65,7 +61,7 @@ class Dataset:
             if n == batch_size:
                 if n == batch_size or ii == len(indeces) -1:
                     if n < batch_size:
-                        # Padding
+                        # Padding if batch size is not as multiple of available batches number
                         padding = batch_size - n
                         eventseq_batch.extend([np.zeros_like(eventseq)] * padding)
                         controlseq_batch.extend([np.zeros_like(controlseq)] * padding)
