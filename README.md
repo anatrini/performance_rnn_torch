@@ -59,19 +59,6 @@ Ensure that `pip` is available within your environment and make sure to activate
 ```
 
 
-## Generated Samples
-
-- A sample on C Major Scale [[MIDI](https://drive.google.com/open?id=1mZtkpsu1yA8oOkE_1b2jyFsvCW70FiKU), [MP3](https://drive.google.com/open?id=1UqyJ9e58AOimFeY1xoCPyedTz-g2fUxv)]
-    - control option: `-c '1,0,1,0,1,1,0,1,0,1,0,1;4'`
-- A sample on C Minor Scale [[MIDI](https://drive.google.com/open?id=1lIVCIT7INuTa-HKrgPzewrgCbgwCRRa1), [MP3](https://drive.google.com/open?id=1pVg3Mg2pSq8VHJRJrgNUZybpsErjzpjF)]
-    - control option: `-c '1,0,1,1,0,1,0,1,1,0,0,1;4'`
-- A sample on C Major Pentatonic Scale [[MIDI](https://drive.google.com/open?id=16uRwyntgYTzSmaxhp06kUbThDm8W_vVE), [MP3](https://drive.google.com/open?id=1LSbeVqXKAPrNPCPcjy6FVwUuVo7FxYji)]
-    - control option: `-c '5,0,4,0,4,1,0,5,0,4,0,1;3'`
-- A sample on C Minor Pentatonic Scale [[MIDI](https://drive.google.com/open?id=1zeMHNu37U6byhT-s63EIro8nL6VkUi8u), [MP3](https://drive.google.com/open?id=1asP1z6u1n3PRSysSnvkt-SabpTgT-_x5)]
-    - control option: `-c '5,0,1,4,0,4,0,5,1,0,4,0;3'`
-
-
-
 ## Instructions
 
 - Download datasets
@@ -137,8 +124,22 @@ Without any conditioning, thus no control
 For a comprehensive list of available options, you can run:
 
     `python generate.py -h`
+
+Please check below for the synthax of conditioning options.
     
 ![generated-sample-1](https://github.com/anatrini/Performance-RNN-PyTorch/blob/master/imgs/piano_roll.png)
+
+
+## Generated Samples
+
+- A sample on C Major Scale [[MIDI](https://drive.google.com/open?id=1mZtkpsu1yA8oOkE_1b2jyFsvCW70FiKU), [MP3](https://drive.google.com/open?id=1UqyJ9e58AOimFeY1xoCPyedTz-g2fUxv)]
+    - control option: `-c '1,0,1,0,1,1,0,1,0,1,0,1;4'`
+- A sample on C Minor Scale [[MIDI](https://drive.google.com/open?id=1lIVCIT7INuTa-HKrgPzewrgCbgwCRRa1), [MP3](https://drive.google.com/open?id=1pVg3Mg2pSq8VHJRJrgNUZybpsErjzpjF)]
+    - control option: `-c '1,0,1,1,0,1,0,1,1,0,0,1;4'`
+- A sample on C Major Pentatonic Scale [[MIDI](https://drive.google.com/open?id=16uRwyntgYTzSmaxhp06kUbThDm8W_vVE), [MP3](https://drive.google.com/open?id=1LSbeVqXKAPrNPCPcjy6FVwUuVo7FxYji)]
+    - control option: `-c '5,0,4,0,4,1,0,5,0,4,0,1;3'`
+- A sample on C Minor Pentatonic Scale [[MIDI](https://drive.google.com/open?id=1zeMHNu37U6byhT-s63EIro8nL6VkUi8u), [MP3](https://drive.google.com/open?id=1asP1z6u1n3PRSysSnvkt-SabpTgT-_x5)]
+    - control option: `-c '5,0,1,4,0,4,0,5,1,0,4,0;3'`
 
 
 ## Pretrained Model
