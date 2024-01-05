@@ -1,6 +1,6 @@
 import hashlib
+import optparse
 import os
-import sys
 import torch
 import utils
 
@@ -12,7 +12,32 @@ from tqdm import tqdm
 
 logger = setup_logger('Preprocess logger')
 
+#========================================================================
+# Settings
+#========================================================================
 
+def get_options():
+    parser = optparse.OptionParser()
+
+    parser.add_option('-m', '--midi_root',
+                      dest='midi_root',
+                      type='string',
+                      default=None,
+                      help='The root directory of MIDI files')
+    
+    parser.add_option('-s', '--save_dir',
+                      dest='save_dir',
+                      type='string',
+                      default=None,
+                      help='The directory to save the processed data')
+    
+    parser.add_option('-w', '--num_workers',
+                      dest='num_workers',
+                      default=0,
+                      type='int',
+                      help='The number of worker processes to use. Default 0, preprocessing is executing on a single thread')
+    
+    return parser.parse_args()[0]
 
 def preprocess_midi(path):
     note_seq = NoteSeq.from_midi_file(path)
@@ -40,7 +65,7 @@ def preprocess_midi_files_under(midi_root, save_dir, num_workers):
             continue
     
     for path, future in tqdm(results, desc='Processing'):
-        logger.info(f' [{path}]', end='', flush=True)
+        logger.info(f' [{path}]')
         name = os.path.basename(path)
         code = hashlib.md5(path.encode()).hexdigest()
         save_path = os.path.join(save_dir, f'{name}-{code}.data')
@@ -48,10 +73,16 @@ def preprocess_midi_files_under(midi_root, save_dir, num_workers):
 
     logger.info('Done')
 
+def main():
+
+    options = get_options()
+    midi_root = options.midi_root
+    save_dir = options.save_dir
+    num_workers = options.num_workers
+
+    preprocess_midi_files_under(midi_root, save_dir, num_workers)
+
 
 
 if __name__ == '__main__':
-    preprocess_midi_files_under(midi_root=sys.argv[1],
-                                save_dir=sys.argv[2],
-                                num_workers=int(sys.argv[3])
-                                )
+    main()

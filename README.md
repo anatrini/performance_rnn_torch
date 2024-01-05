@@ -73,13 +73,13 @@ To install and run this project, it is recommended to set up a virtual environme
 
     ```shell
     # Preprocess all MIDI files under dataset/midi/NAME
-    python preprocess.py dataset/midi/NAME dataset/processed/NAME <no. of workers> # 0 to execute the process on a single thread
+    python preprocess.py dataset/midi/NAME dataset/processed/NAME <no. of workers>
     ```
 
 - Training
 
     ```shell
-    # Train on .data files in dataset/processed/MYDATA, and save to save/myModel.sess every 10s
+    # Train on .data files in dataset/processed/MYDATA, and save to save/myModel.sess every 3 minutes
     python train.py -s save/myModel.sess -d dataset/processed/MYDATA -i 10
 
     # Or...
