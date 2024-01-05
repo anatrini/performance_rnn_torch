@@ -6,6 +6,8 @@
 *.sess
 *.data
 *.log
+dataset/midi/*
+dataset/preprocessed/*
+runs/*
 save/*
-runs/
 **/.gitkeep
