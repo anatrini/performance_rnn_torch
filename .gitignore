@@ -6,8 +6,6 @@
 *.sess
 *.data
 *.log
-adversarial.py
-play.py
 save/*
 runs/
 **/.gitkeep

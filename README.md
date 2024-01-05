@@ -2,13 +2,30 @@
 
 # Performance RNN - PyTorch
 
+This repository contains a PyTorch implementation of Performance RNN, a model inspired by the work of Ian Simon and Sageev Oore on "Performance RNN: Generating Music with Expressive Timing and Dynamics," as presented in the Magenta Blog in 2017. [https://magenta.tensorflow.org/performance-rnn](https://magenta.tensorflow.org/performance-rnn).
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-PyTorch implementation of Performance RNN, inspired by *Ian Simon and Sageev Oore. "Performance RNN: Generating Music with Expressive
-Timing and Dynamics." Magenta Blog, 2017.*
-[https://magenta.tensorflow.org/performance-rnn](https://magenta.tensorflow.org/performance-rnn).
+## Purpose
+
+The implementation of this model is part of the educational activities conducted during the Artificial Models for Music Creativity class at Hochschule für Musik und Theater Hamburg, held during the Winter Semester 2023/2024. For more context and resources related to the class, please refer to the class repository [https://github.com/anatrini/Artificial-Models-Music-Creativity]
 
 This model is not implemented in the official way!
+
+Noteworthy edits from the original fork includes:
+- PyTorch 2 Implementation: This version of Performance RNN has been upgraded to PyTorch 2,        harnessing the latest advancements in the framework.
+
+- GPU Calculation Support: The model seamlessly supports GPU calculations, allowing for faster and more efficient processing, especially on Mac OS platforms.
+
+- Configurable Batch Number and Early Stopping: New config file has been introduced, empowering users to easily set batch numbers and enable early stopping during model training.
+
+- Use as a Module: The entire project can be utilized as a module, providing flexibility for integration into larger projects or workflows.
+
+## Installation
+
+Installation
+
+To install and run this project, it is recommended to set up a virtual environment using tools like Conda or Poetry with Python 3.10. Below is an example using Conda:
 
 ## Generated Samples
 
@@ -92,8 +109,6 @@ This model is not implemented in the official way!
     ```
     
     ![generated-sample-1](https://user-images.githubusercontent.com/17045050/42017026-37dfd7b2-7ae0-11e8-99a9-75d27510f44b.png)
-    
-    ![generated-sample-2](https://user-images.githubusercontent.com/17045050/42017017-337ce0a2-7ae0-11e8-8193-12ea539af424.png)
 
 ## Pretrained Model
 

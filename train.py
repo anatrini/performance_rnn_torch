@@ -240,6 +240,7 @@ def train_model(model,
                 if use_transposition:
                     offset = np.random.choice(np.arange(-6, 6))
                     events, controls = utils.transposition(events, controls, offset)
+                # print(f'Event and control shapes: {events.shape}, {controls.shape}')
 
                 events = torch.LongTensor(events).to(device)
                 assert events.shape[0] == window_size
@@ -266,8 +267,14 @@ def train_model(model,
                 pbar.set_postfix({'loss': train_loss.item()}, refresh=True)
 
                 if enable_logging:
-                    writer.add_scalar('model/loss', train_loss.item(), iteration)
+                    # dummy_events = torch.zeros(events.shape).to(device)
+                    # dummy_controls = torch.zeros(controls.shape).to(device)
+                    # writer.add_graph(model, (dummy_events, dummy_controls))
+                    # Check loss on train data on iteration-basis
+                    writer.add_scalar('model/train_loss', train_loss.item(), iteration)
+                    # Check gradient normalization to spot exploding or vanishing gradients 
                     writer.add_scalar('model/norm', norm.item(), iteration)
+                    writer.flush()
 
                 if time.time() - last_saving_time > saving_interval:
                     save_model(model, model_config, optimizer, sess_path)
@@ -286,6 +293,10 @@ def train_model(model,
                 val_losses.append(val_loss.item())
 
             avg_val_loss = np.mean(val_losses)
+            if enable_logging:
+                # Check validation train on epoch-basis because avg_val_loss is calculated on each epoch
+                writer.add_scalar('model/val_loss', avg_val_loss, epoch)
+                writer.flush()
 
             # Check if early stopping has been called during iterations
             if early_stopping is not None:
@@ -296,6 +307,10 @@ def train_model(model,
 
     except KeyboardInterrupt:
         save_model(model, model_config, optimizer, sess_path)
+
+    finally:
+        if enable_logging:
+            writer.close()
 
 
 
