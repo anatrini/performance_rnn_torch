@@ -125,7 +125,7 @@ For a comprehensive list of available options, you can run:
 
     `python generate.py -h`
 
-Please check below for the synthax of conditioning options.
+Please check below the synthax of conditioning options.
     
 ![generated-sample-1](https://github.com/anatrini/Performance-RNN-PyTorch/blob/master/imgs/piano_roll.png)
 
