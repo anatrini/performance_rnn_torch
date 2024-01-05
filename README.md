@@ -6,20 +6,21 @@ This repository contains a PyTorch implementation of Performance RNN, a model in
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+
 ## Purpose
 
-The implementation of this model is part of the educational activities conducted during the Artificial Models for Music Creativity class at Hochschule für Musik und Theater Hamburg, held during the Winter Semester 2023/2024. For more context and resources related to the class, please refer to the class repository [https://github.com/anatrini/Artificial-Models-Music-Creativity]
+The implementation of this model is part of the educational activities conducted during the Artificial Models for Music Creativity class at Hochschule für Musik und Theater Hamburg, held during the Winter Semester 2023/2024. For more context and resources related to the class, please refer to the class repository https://github.com/anatrini/Artificial-Models-Music-Creativity
 
 This model is not implemented in the official way!
 
 Noteworthy edits from the original fork includes:
+
 - PyTorch 2 Implementation: This version of Performance RNN has been upgraded to PyTorch 2, harnessing the latest advancements in the framework.
 
 - GPU Calculation Support: The model seamlessly supports GPU calculations, allowing for faster and more efficient processing, especially on Mac OS platforms.
 
-- Configurable Batch Number and Early Stopping: New config file has been introduced, empowering users to easily set batch numbers and enable early stopping during model training.
+- Configurable batch number, early stopping and model's performance visualization and logging. New config file has been introduced, empowering users to easily set batch numbers and enable early stopping during model training.
 
-- Use as a Module: The entire project can be utilized as a module, providing flexibility for integration into larger projects or workflows.
 
 ## Installation
 
@@ -33,17 +34,6 @@ To install and run this project, it is recommended to set up a virtual environme
 
 Ensure that `pip` is available within your environment and make sure to activate the environment before installing the requirements.
 
-
-## Generated Samples
-
-- A sample on C Major Scale [[MIDI](https://drive.google.com/open?id=1mZtkpsu1yA8oOkE_1b2jyFsvCW70FiKU), [MP3](https://drive.google.com/open?id=1UqyJ9e58AOimFeY1xoCPyedTz-g2fUxv)]
-    - control option: `-c '1,0,1,0,1,1,0,1,0,1,0,1;4'`
-- A sample on C Minor Scale [[MIDI](https://drive.google.com/open?id=1lIVCIT7INuTa-HKrgPzewrgCbgwCRRa1), [MP3](https://drive.google.com/open?id=1pVg3Mg2pSq8VHJRJrgNUZybpsErjzpjF)]
-    - control option: `-c '1,0,1,1,0,1,0,1,1,0,0,1;4'`
-- A sample on C Major Pentatonic Scale [[MIDI](https://drive.google.com/open?id=16uRwyntgYTzSmaxhp06kUbThDm8W_vVE), [MP3](https://drive.google.com/open?id=1LSbeVqXKAPrNPCPcjy6FVwUuVo7FxYji)]
-    - control option: `-c '5,0,4,0,4,1,0,5,0,4,0,1;3'`
-- A sample on C Minor Pentatonic Scale [[MIDI](https://drive.google.com/open?id=1zeMHNu37U6byhT-s63EIro8nL6VkUi8u), [MP3](https://drive.google.com/open?id=1asP1z6u1n3PRSysSnvkt-SabpTgT-_x5)]
-    - control option: `-c '5,0,1,4,0,4,0,5,1,0,4,0;3'`
 
 ## Directory Structure
 
@@ -60,6 +50,7 @@ Ensure that `pip` is available within your environment and make sure to activate
 │   │       └── *.data (preprocess.py)
 │   └── scripts/
 │       └── *.sh (dataset download scripts)
+│       └── maestro_parser.py (maestro dataset composer extractor)
 ├── output/
 │   └── *.mid (generate.py)
 ├── save/
@@ -67,55 +58,88 @@ Ensure that `pip` is available within your environment and make sure to activate
 └── runs/ (tensorboard logdir)
 ```
 
+
+## Generated Samples
+
+- A sample on C Major Scale [[MIDI](https://drive.google.com/open?id=1mZtkpsu1yA8oOkE_1b2jyFsvCW70FiKU), [MP3](https://drive.google.com/open?id=1UqyJ9e58AOimFeY1xoCPyedTz-g2fUxv)]
+    - control option: `-c '1,0,1,0,1,1,0,1,0,1,0,1;4'`
+- A sample on C Minor Scale [[MIDI](https://drive.google.com/open?id=1lIVCIT7INuTa-HKrgPzewrgCbgwCRRa1), [MP3](https://drive.google.com/open?id=1pVg3Mg2pSq8VHJRJrgNUZybpsErjzpjF)]
+    - control option: `-c '1,0,1,1,0,1,0,1,1,0,0,1;4'`
+- A sample on C Major Pentatonic Scale [[MIDI](https://drive.google.com/open?id=16uRwyntgYTzSmaxhp06kUbThDm8W_vVE), [MP3](https://drive.google.com/open?id=1LSbeVqXKAPrNPCPcjy6FVwUuVo7FxYji)]
+    - control option: `-c '5,0,4,0,4,1,0,5,0,4,0,1;3'`
+- A sample on C Minor Pentatonic Scale [[MIDI](https://drive.google.com/open?id=1zeMHNu37U6byhT-s63EIro8nL6VkUi8u), [MP3](https://drive.google.com/open?id=1asP1z6u1n3PRSysSnvkt-SabpTgT-_x5)]
+    - control option: `-c '5,0,1,4,0,4,0,5,1,0,4,0;3'`
+
+
+
 ## Instructions
 
 - Download datasets
 
-    ```shell
-    cd dataset/
-    bash scripts/NAME_scraper.sh midi/NAME
-    ```
+You can use one of the shell scripts to download a dataset for training the model if you are using a UNIX machine. 
+
+    `cd dataset/`
+    `bash scripts/<script_name>_scraper.sh midi/<folder_name>`
+
+If you already have the maestro dataset from https://magenta.tensorflow.org/datasets/maestro#v300, you can use the provided Python script to selectively copy MIDI files corresponding to a specific composer.
+
+    `cd script/`
+    `python maestro_parser.py -c <composer_name> -s <output_dir>, -m <path to .csv maestro's dataset content>`
 
 - Preprocessing
 
-    ```shell
-    # Preprocess all MIDI files under dataset/midi/NAME
-    python preprocess.py dataset/midi/NAME dataset/processed/NAME <no. of workers>
-    ```
+Once you got the midi files they must be preprocessed.
+
+    `python preprocess -m dataset/midi/<folder_name_to_preprocess> -s dataset/processed/<folder_name_for_preprocessed_files> -w <number_of_workers>`
+
+By default, the number of workers is set to 0. This configuration implies that the preprocessing steps will be executed on a single thread. To leverage the full processing power of your machine, consider increasing this number to run the preprocessing steps concurrently on multiple threads. Adjust the worker count based on the number of processors available on your machine.
 
 - Training
 
-    ```shell
-    # Train on .data files in dataset/processed/MYDATA, and save to save/myModel.sess every 3 minutes
-    python train.py -s save/myModel.sess -d dataset/processed/MYDATA -i 10
+To train the model using .data files located in dataset/processed/mydata and save the model to save/mymodel.sess every 3 minutes (time interval is expressed in seconds), you can refer to the following example:
 
-    # Or...
-    python train.py -s save/myModel.sess -d dataset/processed/MYDATA -p hidden_dim=1024
-    python train.py -s save/myModel.sess -d dataset/processed/MYDATA -b 128 -c 0.3
-    python train.py -s save/myModel.sess -d dataset/processed/MYDATA -w 100 -S 10
-    ```
+    `python train.py -S save/mymodel.sess -d dataset/processed/mydata -i 180`
 
-    ![training-figure](https://user-images.githubusercontent.com/17045050/42135712-7f6e25f4-7d81-11e8-845f-682bd26a3abb.png)
+For a comprehensive list of available options, you can run:
+
+    `python train.py -h`
+
+or 
+
+    `python train.py --help`
+
+![training-figure](https://github.com/anatrini/Performance-RNN-PyTorch/blob/master/imgs/tensorboard.png)
 
 
 - Generating
 
-    ```shell
-    # Generate with control sequence from test.data and model from save/test.sess
-    python3 generate.py -s save/test.sess -c test.data
+To generate midi files you can refer to the following examples.
+Generate with control sequence from test.data and model from save/test.sess:
 
-    # Generate with pitch histogram and note density (C major scale)
-    python3 generate.py -s save/test.sess -l 1000 -c '1,0,1,0,1,1,0,1,0,1,0,1;3'
+    `python3 generate.py -s save/test.sess -c test.data`
 
-    # Or...
-    python3 generate.py -s save/test.sess -l 1000 -c ';3' # uniform pitch histogram
-    python3 generate.py -s save/test.sess -l 1000 # no control
+Generate with pitch histogram and note density (C major scale):
 
-    # Use control sequence from processed data
-    python3 generate.py -s save/test.sess -c dataset/processed/some/processed.data
-    ```
+    `python3 generate.py -s save/test.sess -l 1000 -c '1,0,1,0,1,1,0,1,0,1,0,1;3'`
+
+Uniform generation, chromatic scale:
+
+    `python3 generate.py -s save/test.sess -l 1000 -c ';3'`
+
+Using control sequence from processed data
+
+    `python3 generate.py -s save/test.sess -c dataset/processed/some/processed.data`
+
+Without any conditioning, thus no control
+
+    `python3 generate.py -s save/test.sess -l 1000`
+
+For a comprehensive list of available options, you can run:
+
+    `python generate.py -h`
     
-    ![generated-sample-1](https://user-images.githubusercontent.com/17045050/42017026-37dfd7b2-7ae0-11e8-99a9-75d27510f44b.png)
+![generated-sample-1](https://github.com/anatrini/Performance-RNN-PyTorch/blob/master/imgs/piano_roll.png)
+
 
 ## Pretrained Model
 
@@ -126,4 +150,3 @@ Ensure that `pip` is available within your environment and make sure to activate
     - window_size: 500
     - control_ratio: 0.7
     - dataset: [International Piano-e-Competition, recorded MIDI files](http://www.piano-e-competition.com/)
-
