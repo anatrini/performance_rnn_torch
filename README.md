@@ -25,7 +25,7 @@ Noteworthy edits from the original fork includes:
 
 To install and run this project, it is recommended to set up a virtual environment using tools like Conda or Poetry with Python 3.10. Below is an example using Conda:
 
-    ```shell
+    ```
     conda create --name <env_name> python=3.10
     conda activate <env_name>
     pip install -r requirements.txt
