@@ -1,0 +1,5 @@
+numpy==1.26.3
+pandas==2.1.4
+pretty_midi==0.2.10
+torch==2.3.0.dev20231217
+tqdm==4.66.1

@@ -13,7 +13,7 @@ The implementation of this model is part of the educational activities conducted
 This model is not implemented in the official way!
 
 Noteworthy edits from the original fork includes:
-- PyTorch 2 Implementation: This version of Performance RNN has been upgraded to PyTorch 2,        harnessing the latest advancements in the framework.
+- PyTorch 2 Implementation: This version of Performance RNN has been upgraded to PyTorch 2, harnessing the latest advancements in the framework.
 
 - GPU Calculation Support: The model seamlessly supports GPU calculations, allowing for faster and more efficient processing, especially on Mac OS platforms.
 
@@ -23,9 +23,13 @@ Noteworthy edits from the original fork includes:
 
 ## Installation
 
-Installation
-
 To install and run this project, it is recommended to set up a virtual environment using tools like Conda or Poetry with Python 3.10. Below is an example using Conda:
+
+    ```shell
+    conda create --name <env_name> python=3.10
+    conda activate <env_name>
+    pip install -r requirements.txt
+    ```
 
 ## Generated Samples
 
