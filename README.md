@@ -1,4 +1,4 @@
-![generated-sample-sheet-music](https://user-images.githubusercontent.com/17045050/42017029-3b4f7060-7ae0-11e8-829b-6d6b8b829759.png)
+![generated-sample-sheet-music](https://github.com/anatrini/Performance-RNN-PyTorch/blob/master/imgs/score.png)
 
 # Performance RNN - PyTorch
 
@@ -23,13 +23,16 @@ Noteworthy edits from the original fork includes:
 
 ## Installation
 
-To install and run this project, it is recommended to set up a virtual environment using tools like Conda or Poetry with Python 3.10. Below is an example using Conda:
+To install and run this project, it is recommended to set up a virtual environment using tools like Conda or Poetry with Python 3.10. Using conda for example, once you cloned the repository `cd` to the root folder and run:
 
-    ```
-    conda create --name <env_name> python=3.10
-    conda activate <env_name>
-    pip install -r requirements.txt
-    ```
+    `conda create --name <environment_name> python==3.9.16`
+
+    `conda activate <myenv>`
+
+    `pip install -r requirements.txt`
+
+Ensure that `pip` is available within your environment and make sure to activate the environment before installing the requirements.
+
 
 ## Generated Samples
 
