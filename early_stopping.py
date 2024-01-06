@@ -1,6 +1,10 @@
 import config
 import numpy as np
 
+from logger import setup_logger
+
+logger = setup_logger('early stopping logger')
+
 class EarlyStopping:
     def __init__(self, patience=config.train['early_stopping_patience'], verbose=False, delta=0):
         self.patience = patience
@@ -20,7 +24,7 @@ class EarlyStopping:
             self.best_score = score
         elif score < self.best_score + self.delta:
             self.counter += 1
-            print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
+            logger.info(f'EarlyStopping counter: {self.counter} out of {self.patience}')
             if self.counter >= self.patience:
                 self.early_stop = True
         else:

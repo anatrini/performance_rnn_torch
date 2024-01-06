@@ -1,4 +1,4 @@
-import copy
+import config
 import os
 import torch
 import numpy as np
@@ -27,7 +27,7 @@ class Dataset:
         self.avglen = np.mean(self.seqlens)
 
 
-    def train_test_split(self, test_size=0.2):
+    def train_test_split(self, test_size=config.train['train_test_ratio']):
         # Check test length
         num_test = int(test_size * len(self.samples))
 
