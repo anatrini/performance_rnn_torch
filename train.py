@@ -303,6 +303,7 @@ def train_model(model,
                 early_stopping(avg_val_loss, model)
                 if early_stopping.early_stop:
                     logger.info(f'Early stopping!')
+                    save_model(model, model_config, optimizer, sess_path)
                     break
 
     except KeyboardInterrupt:

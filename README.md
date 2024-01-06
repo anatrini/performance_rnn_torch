@@ -103,23 +103,23 @@ or
 To generate midi files you can refer to the following examples.
 Generate with control sequence from test.data and model from save/test.sess:
 
-    `python3 generate.py -s save/test.sess -c test.data`
+    `python generate.py -s save/test.sess -c test.data`
 
 Generate with pitch histogram and note density (C major scale):
 
-    `python3 generate.py -s save/test.sess -l 1000 -c '1,0,1,0,1,1,0,1,0,1,0,1;3'`
+    `python generate.py -s save/test.sess -l 1000 -c '1,0,1,0,1,1,0,1,0,1,0,1;3'`
 
 Uniform generation, chromatic scale:
 
-    `python3 generate.py -s save/test.sess -l 1000 -c ';3'`
+    `python generate.py -s save/test.sess -l 1000 -c ';3'`
 
 Using control sequence from processed data
 
-    `python3 generate.py -s save/test.sess -c dataset/processed/some/processed.data`
+    `python generate.py -s save/test.sess -c dataset/processed/some/processed.data`
 
 Without any conditioning, thus no control
 
-    `python3 generate.py -s save/test.sess -l 1000`
+    `python generate.py -s save/test.sess -l 1000`
 
 For a comprehensive list of available options, you can run:
 
