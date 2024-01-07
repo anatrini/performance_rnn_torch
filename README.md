@@ -30,6 +30,8 @@ To install and run this project, it is recommended to set up a virtual environme
 
     `conda activate <myenv>`
 
+    `conda install -c pytorch-nightly pytorch=2.3.0`
+
     `pip install -r requirements.txt`
 
 Ensure that `pip` is available within your environment and make sure to activate the environment before installing the requirements.
@@ -97,6 +99,10 @@ or
 
 ![training-figure](https://github.com/anatrini/Performance-RNN-PyTorch/blob/master/imgs/tensorboard.png)
 
+- Hyperparameters optimization
+Before initiating the model training process, it's advisable to identify the optimal settings for both model architecture and training hyperparameters. This can be achieved through the following step:
+
+    `python hyperparameters.py -S save/mymodel.sess -d dataset/processed/mydata`
 
 - Generating
 

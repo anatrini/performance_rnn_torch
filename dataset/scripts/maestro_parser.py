@@ -45,6 +45,7 @@ def copy_select(composer, output_dir, csv_filepath):
             if file in filenames:
                 try:
                     shutil.copy(os.path.join(dirpath, file), output_dir)
+                    print(f'File copied succesfully to {output_dir}')
                     found = True
                 except IOError as e:
                     print(f"Unable to copy file: {e}")

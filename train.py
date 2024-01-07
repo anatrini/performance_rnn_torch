@@ -283,28 +283,42 @@ def train_model(model,
             pbar.close()
 
             # After each epoch, evaluate the model on the entire test set
-            val_losses = []
+            validation_losses = []
+            validation_accuracies = []
             for test_events, test_controls in test_data.batches(batch_size, window_size, stride_size):
                 test_events = torch.LongTensor(test_events).to(device)
                 test_controls = torch.LongTensor(test_controls).to(device)
                 
-                # Compute validation loss
-                val_loss = loss_update(init, window_size, test_events, event_dim, test_controls, model, loss_function, teacher_forcing_ratio)
-                val_losses.append(val_loss.item())
+                # Compute validation loss and accuracy for hyperparameters optimization
+                with torch.no_grad():
+                    validation_loss = loss_update(init, window_size, test_events, event_dim, test_controls, model, loss_function, teacher_forcing_ratio)
+                    validation_losses.append(validation_loss.item())
 
-            avg_val_loss = np.mean(val_losses)
+                    outputs = model(test_events)
+                    _, predicted = torch.max(outputs.data, 1)
+                    total = test_controls.size(0)
+                    correct = (predicted == test_controls).sum().item()
+                    validation_accuracy = correct / total
+                    validation_accuracies.append(validation_accuracy)
+
+            avg_validation_loss = np.mean(validation_losses)
+            avg_validation_accuracy = np.mean(validation_accuracies)
+
             if enable_logging:
                 # Check validation train on epoch-basis because avg_val_loss is calculated on each epoch
-                writer.add_scalar('model/val_loss', avg_val_loss, epoch)
+                writer.add_scalar('model/validation_loss', avg_validation_loss, epoch)
                 writer.flush()
 
             # Check if early stopping has been called during iterations
             if early_stopping is not None:
-                early_stopping(avg_val_loss, model)
+                early_stopping(avg_validation_loss, model)
                 if early_stopping.early_stop:
                     logger.info(f'Early stopping!')
                     save_model(model, model_config, optimizer, sess_path)
                     break
+        
+        # Return validation accuracy to perform optimization
+        return avg_validation_accuracy
 
     except KeyboardInterrupt:
         save_model(model, model_config, optimizer, sess_path)
@@ -370,7 +384,8 @@ def main():
     dataset = load_dataset(data_path)
     logger.info(dataset)
 
-    train_model(model, optimizer, dataset, batch_size, num_epochs, window_size, stride_size, train_test_ratio, early_stopping_patience, event_dim, control_ratio, teacher_forcing_ratio, enable_logging, saving_interval, use_transposition, device, model_config, sess_path)
+    validation_accuracy = train_model(model, optimizer, dataset, batch_size, num_epochs, window_size, stride_size, train_test_ratio, early_stopping_patience, event_dim, control_ratio, teacher_forcing_ratio, enable_logging, saving_interval, use_transposition, device, model_config, sess_path)
+    logger.info(f'Validation accuracy: {validation_accuracy}')
 
 
 
