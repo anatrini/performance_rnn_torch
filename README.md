@@ -19,7 +19,7 @@ Noteworthy edits from the original fork includes:
 
 - GPU Calculation Support: The model seamlessly supports GPU calculations, allowing for faster and more efficient processing, especially on Mac OS platforms.
 
-- Configurable batch number, early stopping and model's performance visualization and logging. New config file has been introduced, empowering users to easily set batch numbers and enable early stopping during model training.
+- Configurable batch number, early stopping, model's performance visualization, logging and hyperparameters optimization routine. New config file has been introduced, empowering users to easily set batch numbers and enable early stopping during model training.
 
 
 ## Installation
