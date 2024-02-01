@@ -24,17 +24,36 @@ Noteworthy edits from the original fork includes:
 
 ## Installation
 
-To install and run this project, it is recommended to set up a virtual environment using tools like Conda or Poetry with Python 3.10. Using conda for example, once you cloned the repository `cd` to the root folder and run:
+To install and run this project, it is recommended to set up a virtual environment using tools like Conda or Poetry with Python 3.10. For instance using Conda, follow these steps after cloning the repository and navigating to the root folder:
+
+1. Create a new Conda environment with Python 3.10:
 
     `conda create --name <environment_name> python==3.10`
 
+2. Activate the newly created environment:
+
     `conda activate <myenv>`
+
+3. Install PyTorch 2.3.0 from the PyTorch Nightly channel:
 
     `conda install -c pytorch-nightly pytorch=2.3.0`
 
+4. Install the required packages listed in the requirements.txt file:
+
     `pip install -r requirements.txt`
 
+If you want to use this repository as a Python module, replace the last command with the following:
+
+    `pip install -e .`
+
+This will install the package in editable mode, which means changes to the source code will be immediately effective without the need for reinstallation.
+
 Ensure that `pip` is available within your environment and make sure to activate the environment before installing the requirements.
+
+Once the installtion is complete, you can import the module in your Python script as follows:
+
+    ```python
+    import performance_rnn_torch as rnn
 
 
 ## Directory Structure

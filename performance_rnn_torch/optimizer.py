@@ -87,8 +87,9 @@ def objective(trial,
 
 
 
-def main():
-    options = get_options()
+def main(options):
+    if options is None:
+        options = get_options()
 
     sess_path = options.sess_path
     data_path = options.data_path

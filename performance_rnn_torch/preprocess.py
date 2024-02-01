@@ -73,9 +73,10 @@ def preprocess_midi_files_under(midi_root, save_dir, num_workers):
 
     logger.info('Done')
 
-def main():
+def main(options):
+    if options is None:
+        options = get_options()
 
-    options = get_options()
     midi_root = options.midi_root
     save_dir = options.save_dir
     num_workers = options.num_workers
