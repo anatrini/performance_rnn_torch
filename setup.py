@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='Performance-RNN-PyTorch',
+    name='performance_rnn_torch',
     version='1.0',
     packages=find_packages(),
     author='Alessandro Anatrini',
