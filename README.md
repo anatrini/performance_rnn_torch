@@ -52,7 +52,9 @@ Ensure that `pip` is available within your environment and make sure to activate
 
 Once the installtion is complete, you can import the module in your Python script as follows:
 
-    ```python import performance_rnn_torch as rnn```
+    ```python 
+    import performance_rnn_torch as rnn
+    ```
 
 
 ## Directory Structure
