@@ -54,6 +54,8 @@ Once the installtion is complete, you can import the module in your Python scrip
 
     ```python
     import performance_rnn_torch as rnn
+    
+    ```
 
 
 ## Directory Structure
