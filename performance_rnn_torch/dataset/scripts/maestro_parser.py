@@ -4,7 +4,7 @@ import pandas as pd
 import shutil
 import sys
 
-
+### This script MUST be run inside the folder containing the maestro folder!!!
 def get_options():
     parser = optparse.OptionParser()
 

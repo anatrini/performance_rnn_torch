@@ -118,7 +118,7 @@ def generate(model,
 # Main
 #========================================================================
 
-def main(options):
+def main(options=None):
     if options is None:
         options = get_options()
 

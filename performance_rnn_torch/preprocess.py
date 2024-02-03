@@ -73,7 +73,7 @@ def preprocess_midi_files_under(midi_root, save_dir, num_workers):
 
     logger.info('Done')
 
-def main(options):
+def main(options=None):
     if options is None:
         options = get_options()
 

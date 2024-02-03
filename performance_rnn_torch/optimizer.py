@@ -5,7 +5,7 @@ import optuna
 from logger import setup_logger
 from train import *
 
-logger = setup_logger('Hyperparameters optimization logger', file=True)
+logger = setup_logger('Hyperparameters optimization routine', file=True)
 
 
 def get_options():
@@ -54,7 +54,7 @@ def objective(trial,
 
     # Set training hyperparameters values to be tested using the trial object
     batch_size = trial.suggest_categorical('batch_size', [16, 32, 64, 128, 256])
-    num_epochs = trial.suggest_categorical('num_epochs', [5, 10, 25, 50, 100])
+    num_epochs = trial.suggest_categorical('num_epochs', [5, 10, 25, 50, 100, 150])
     window_size = trial.suggest_categorical('window_size', [10, 20, 50, 100, 200])
     stride_size = trial.suggest_categorical('stride_size', [1, 2, 5, 10, 20])
     learning_rate = trial.suggest_float('learning_rate', 1e-5, 1e-2, log=True)
@@ -87,7 +87,7 @@ def objective(trial,
 
 
 
-def main(options):
+def main(options=None):
     if options is None:
         options = get_options()
 
