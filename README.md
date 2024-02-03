@@ -60,7 +60,7 @@ Once the installtion is complete, you can import the module in your Python scrip
 ## Directory Structure
 
 ```
-.
+performance_rnn_torch
 ├── dataset/
 │   ├── midi/
 │   │   ├── dataset1/
