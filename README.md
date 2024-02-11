@@ -122,7 +122,12 @@ or
 - Hyperparameters optimization
 Before initiating the model training process, it's advisable to identify the optimal settings for both model architecture and training hyperparameters. This can be achieved through the following step:
 
-    `python hyperparameters.py -S save/mymodel.sess -d dataset/processed/mydata`
+    `python optimizer_routine.py -S save/mymodel.sess -d dataset/processed/mydata`
+
+- Model performance
+The model's performance can be observed using Tensorboard. Type in the terminal:
+
+    `tensorboard --logdir <path to runs folder>`
 
 - Generating
 

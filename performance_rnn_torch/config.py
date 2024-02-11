@@ -39,7 +39,7 @@ train = {
     'stride_size': 10,
     'learning_rate': 0.001,
     'train_test_ratio': 0.3,
-    'early_stopping_patience': 10,
+    'early_stopping_patience': 5,
     'use_transposition': False,
     'control_ratio': 1.0,
     'teacher_forcing_ratio': 1.0,

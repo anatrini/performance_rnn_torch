@@ -1,7 +1,7 @@
+import argparse
 import config
 import numpy as np
 import os
-import optparse
 import torch
 import utils
 
@@ -18,10 +18,10 @@ logger = setup_logger('Generator logger')
 # Settings
 # ========================================================================
 
-def get_options():
-    parser = optparse.OptionParser()
+def get_arguments():
+    parser = argparse.ArgumentParser()
 
-    parser.add_option('-c', '--control',
+    parser.add_argument('-c', '--control',
                       dest='control',
                       type='string',
                       default=None,
@@ -32,53 +32,53 @@ def get_options():
                             'or "/path/to/processed/midi/file.data" '
                             '(uses control sequence from the given processed data)'))
 
-    parser.add_option('-b', '--batch-size',
+    parser.add_argument('-b', '--batch-size',
                       dest='batch_size',
                       type='int',
                       default=config.generate['batch_size'])
 
-    parser.add_option('-s', '--session',
+    parser.add_argument('-s', '--session',
                       dest='sess_path',
                       type='string',
                       default='save/train.sess',
                       help='session file containing the trained model')
 
-    parser.add_option('-o', '--output-dir',
+    parser.add_argument('-o', '--output-dir',
                       dest='output_dir',
                       type='string',
                       default='output/')
 
-    parser.add_option('-l', '--max-length',
+    parser.add_argument('-l', '--max-length',
                       dest='max_len',
                       type='int',
                       default=config.generate['max_len'])
 
-    parser.add_option('-g', '--greedy-ratio',
+    parser.add_argument('-g', '--greedy-ratio',
                       dest='greedy_ratio',
                       type='float',
                       default=config.generate['greedy_ratio'])
 
-    parser.add_option('-B', '--beam-size',
+    parser.add_argument('-B', '--beam-size',
                       dest='beam_size',
                       type='int',
                       default=config.generate['beam_size'])
 
-    parser.add_option('-S', '--stochastic-beam-search',
+    parser.add_argument('-S', '--stochastic-beam-search',
                       dest='stochastic_beam_search',
                       action='store_true',
                       default=config.generate['stochastic_beam_search'])
 
-    parser.add_option('-T', '--temperature',
+    parser.add_argument('-T', '--temperature',
                       dest='temperature',
                       type='float',
                       default=config.generate['temperature'])
 
-    parser.add_option('-z', '--init-zero',
+    parser.add_argument('-z', '--init-zero',
                       dest='init_zero',
                       action='store_true',
                       default=config.generate['init_zero'])
 
-    return parser.parse_args()[0]
+    return parser.parse_args()
 
 
 # ========================================================================
@@ -118,21 +118,21 @@ def generate(model,
 # Main
 #========================================================================
 
-def main(options=None):
-    if options is None:
-        options = get_options()
+def main(args=None):
+    if args is None:
+        args = get_arguments()
 
-    sess_path = options.sess_path
-    output_dir = options.output_dir
-    batch_size = options.batch_size
-    max_len = options.max_len
-    greedy_ratio = options.greedy_ratio
-    control = options.control
-    use_beam_search = options.beam_size > 0
-    stochastic_beam_search = options.stochastic_beam_search
-    beam_size = options.beam_size
-    temperature = options.temperature
-    init_zero = options.init_zero
+    sess_path = args.sess_path
+    output_dir = args.output_dir
+    batch_size = args.batch_size
+    max_len = args.max_len
+    greedy_ratio = args.greedy_ratio
+    control = args.control
+    use_beam_search = args.beam_size > 0
+    stochastic_beam_search = args.stochastic_beam_search
+    beam_size = args.beam_size
+    temperature = args.temperature
+    init_zero = args.init_zero
     device = config.device
 
     logger.info(f'Session path: {sess_path}')

@@ -1,5 +1,5 @@
+import argparse
 import config
-import optparse
 import optuna
 
 from logger import setup_logger
@@ -8,31 +8,31 @@ from train import *
 logger = setup_logger('Hyperparameters optimization routine', file=True)
 
 
-def get_options():
+def get_arguments():
 
-    parser = optparse.OptionParser()
+    parser = argparse.ArgumentParser()
 
-    parser.add_option('-S', '--session',
+    parser.add_argument('-S', '--session',
                       dest='sess_path',
                       type='string',
                       default='save/train.sess')
 
-    parser.add_option('-d', '--dataset',
+    parser.add_argument('-d', '--dataset',
                       dest='data_path',
                       type='string',
-                      default='dataset/processed/')
+                      default='dataset/processed')
     
-    parser.add_option('-R', '--reset-optimizer',
+    parser.add_argument('-R', '--reset-optimizer',
                       dest='reset_optimizer',
                       action='store_true',
                       default=False)
     
-    parser.add_option('-L', '--enable-logging',
+    parser.add_argument('-L', '--enable-logging',
                       dest='enable_logging',
                       action='store_true',
                       default=False)
     
-    return parser.parse_args()[0]
+    return parser.parse_args()
 
 
 
@@ -50,7 +50,7 @@ def objective(trial,
     init_dim = trial.suggest_categorical('init_dim', [32, 64])
     hidden_dim = trial.suggest_categorical('hidden_dim', [256, 512, 1024])
     gru_layers = trial.suggest_int('gru_layers', 2, 5)
-    gru_dropout = trial.suggest_float('gru_dropout', 1e-1, 1.0)
+    gru_dropout = trial.suggest_float('gru_dropout', 1e-3, 1.0)
 
     # Set training hyperparameters values to be tested using the trial object
     batch_size = trial.suggest_categorical('batch_size', [16, 32, 64, 128, 256])
@@ -87,14 +87,14 @@ def objective(trial,
 
 
 
-def main(options=None):
-    if options is None:
-        options = get_options()
+def main(args=None):
+    if args is None:
+        args = get_arguments()
 
-    sess_path = options.sess_path
-    data_path = options.data_path
-    reset_optimizer = options.reset_optimizer
-    enable_logging = options.enable_logging
+    sess_path = args.sess_path
+    data_path = args.data_path
+    reset_optimizer = args.reset_optimizer
+    enable_logging = args.enable_logging
 
     model_config = config.model
     train_config = config.train

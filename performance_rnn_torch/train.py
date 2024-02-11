@@ -1,6 +1,6 @@
+import argparse
 import config
 import numpy as np
-import optparse
 import time
 import torch
 from torch import nn
@@ -24,90 +24,91 @@ logger = setup_logger('Training logger', file=True)
 #========================================================================
 
 
-def get_options():
-    parser = optparse.OptionParser()
+def get_arguments():
+    parser = argparse.ArgumentParser()
 
-    parser.add_option('-S', '--session',
+    parser.add_argument('-S', '--session',
                       dest='sess_path',
-                      type='string',
+                      type=str,
                       default='save/train.sess')
 
-    parser.add_option('-d', '--dataset',
+    parser.add_argument('-d', '--dataset',
                       dest='data_path',
-                      type='string',
+                      type=str,
                       default='dataset/processed/')
 
-    parser.add_option('-i', '--saving-interval',
+    parser.add_argument('-i', '--saving-interval',
                       dest='saving_interval',
-                      type='float',
+                      type=int,
                       default=config.train['saving_interval'])
 
-    parser.add_option('-b', '--batch-size',
+    parser.add_argument('-b', '--batch-size',
                       dest='batch_size',
-                      type='int',
+                      type=int,
                       default=config.train['batch_size'])
     
-    parser.add_option('-e', '--num_epochs',
+    parser.add_argument('-e', '--num_epochs',
                       dest='num_epochs',
-                      type='int',
+                      type=int,
                       default=config.train['num_epochs'])
 
-    parser.add_option('-l', '--learning-rate',
+    parser.add_argument('-l', '--learning-rate',
                       dest='learning_rate',
-                      type='float',
+                      type=float,
                       default=config.train['learning_rate'])
 
-    parser.add_option('-w', '--window-size',
+    parser.add_argument('-w', '--window-size',
                       dest='window_size',
-                      type='int',
+                      type=int,
                       default=config.train['window_size'])
 
-    parser.add_option('-s', '--stride-size',
+    parser.add_argument('-s', '--stride-size',
                       dest='stride_size',
-                      type='int',
+                      type=int,
                       default=config.train['stride_size'])
     
-    parser.add_option('-r', '--train_test_ratio',
+    parser.add_argument('-r', '--train_test_ratio',
                       dest='train_test_ratio',
-                      type='float',
+                      type=float,
                       default=config.train['train_test_ratio'])
     
-    parser.add_option('-p', '--early_stopping_patience',
+    parser.add_argument('-p', '--early_stopping_patience',
                       dest='early_stopping_patience',
-                      type='int',
+                      type=int,
                       default=config.train['early_stopping_patience'])
 
-    parser.add_option('-c', '--control-ratio',
+    parser.add_argument('-c', '--control-ratio',
                       dest='control_ratio',
-                      type='float',
+                      type=float,
                       default=config.train['control_ratio'])
 
-    parser.add_option('-f', '--teacher-forcing-ratio',
+    parser.add_argument('-f', '--teacher-forcing-ratio',
                       dest='teacher_forcing_ratio',
-                      type='float',
+                      type=float,
                       default=config.train['teacher_forcing_ratio'])
 
-    parser.add_option('-T', '--use-transposition',
+    parser.add_argument('-T', '--use-transposition',
                       dest='use_transposition',
                       action='store_true',
                       default=config.train['use_transposition'])
 
-    parser.add_option('-M', '--model-params',
+    parser.add_argument('-M', '--model-params',
                       dest='model_params',
-                      type='string',
-                      default='')
+                      type=str,
+                      default=''
+                      )
                       
-    parser.add_option('-R', '--reset-optimizer',
+    parser.add_argument('-R', '--reset-optimizer',
                       dest='reset_optimizer',
                       action='store_true',
                       default=False)
                       
-    parser.add_option('-L', '--enable-logging',
+    parser.add_argument('-L', '--enable-logging',
                       dest='enable_logging',
                       action='store_true',
-                      default=False)
+                      default=True)
 
-    return parser.parse_args()[0]
+    return parser.parse_args()
 
 
 
@@ -223,8 +224,10 @@ def train_model(model,
 
     train_data, test_data = dataset.train_test_split(test_size=train_test_ratio)
 
+    avg_val_loss = None
     last_saving_time = time.time()
     loss_function = nn.CrossEntropyLoss()
+
 
     try:
         for epoch in range(num_epochs):
@@ -240,7 +243,6 @@ def train_model(model,
                 if use_transposition:
                     offset = np.random.choice(np.arange(-6, 6))
                     events, controls = utils.transposition(events, controls, offset)
-                # print(f'Event and control shapes: {events.shape}, {controls.shape}')
 
                 events = torch.LongTensor(events).to(device)
                 assert events.shape[0] == window_size
@@ -250,7 +252,6 @@ def train_model(model,
                     assert controls.shape[0] == window_size
                 else:
                     controls = None
-                    
 
                 init = torch.randn(batch_size, model.init_dim).to(device)
                 
@@ -267,14 +268,10 @@ def train_model(model,
                 pbar.set_postfix({'loss': train_loss.item()}, refresh=True)
 
                 if enable_logging:
-                    # dummy_events = torch.zeros(events.shape).to(device)
-                    # dummy_controls = torch.zeros(controls.shape).to(device)
-                    # writer.add_graph(model, (dummy_events, dummy_controls))
                     # Check loss on train data on iteration-basis
                     writer.add_scalar('model/train_loss', train_loss.item(), iteration)
                     # Check gradient normalization to spot exploding or vanishing gradients 
                     writer.add_scalar('model/norm', norm.item(), iteration)
-                    writer.flush()
 
                 if time.time() - last_saving_time > saving_interval:
                     save_model(model, model_config, optimizer, sess_path)
@@ -282,50 +279,34 @@ def train_model(model,
             
             pbar.close()
 
-            # After each epoch, evaluate the model on the entire test set
-            validation_losses = []
-            validation_accuracies = []
+            val_losses = []
             for test_events, test_controls in test_data.batches(batch_size, window_size, stride_size):
                 test_events = torch.LongTensor(test_events).to(device)
                 test_controls = torch.LongTensor(test_controls).to(device)
                 
-                # Compute validation loss and accuracy for hyperparameters optimization
-                with torch.no_grad():
-                    validation_loss = loss_update(init, window_size, test_events, event_dim, test_controls, model, loss_function, teacher_forcing_ratio)
-                    validation_losses.append(validation_loss.item())
+                # Compute validation loss
+                val_loss = loss_update(init, window_size, test_events, event_dim, test_controls, model, loss_function, teacher_forcing_ratio)
+                val_losses.append(val_loss.item())
 
-                    outputs = model(test_events)
-                    _, predicted = torch.max(outputs.data, 1)
-                    total = test_controls.size(0)
-                    correct = (predicted == test_controls).sum().item()
-                    validation_accuracy = correct / total
-                    validation_accuracies.append(validation_accuracy)
-
-            avg_validation_loss = np.mean(validation_losses)
-            avg_validation_accuracy = np.mean(validation_accuracies)
-
+            avg_val_loss = np.mean(val_losses)
             if enable_logging:
                 # Check validation train on epoch-basis because avg_val_loss is calculated on each epoch
-                writer.add_scalar('model/validation_loss', avg_validation_loss, epoch)
-                writer.flush()
-
+                writer.add_scalar('model/val_loss', avg_val_loss, epoch)
             # Check if early stopping has been called during iterations
             if early_stopping is not None:
-                early_stopping(avg_validation_loss, model)
+                early_stopping(avg_val_loss, model)
                 if early_stopping.early_stop:
                     logger.info(f'Early stopping!')
                     save_model(model, model_config, optimizer, sess_path)
                     break
-        
-        # Return validation accuracy to perform optimization
-        return avg_validation_accuracy
 
     except KeyboardInterrupt:
         save_model(model, model_config, optimizer, sess_path)
-
     finally:
         if enable_logging:
             writer.close()
+
+        return avg_val_loss
 
 
 
@@ -333,30 +314,30 @@ def train_model(model,
 # Main
 #========================================================================
 
-def main(options=None):
-    if options is None:
-        options = get_options()
+def main(args=None):
+    if args is None:
+        args = get_arguments()
 
-    sess_path = options.sess_path
-    data_path = options.data_path
-    saving_interval = options.saving_interval
+    sess_path = args.sess_path
+    data_path = args.data_path
+    saving_interval = args.saving_interval
 
-    learning_rate = options.learning_rate
-    batch_size = options.batch_size
-    num_epochs = options.num_epochs
-    window_size = options.window_size
-    stride_size = options.stride_size
-    train_test_ratio = options.train_test_ratio
-    early_stopping_patience = options.early_stopping_patience
-    use_transposition = options.use_transposition
-    control_ratio = options.control_ratio
-    teacher_forcing_ratio = options.teacher_forcing_ratio
-    reset_optimizer = options.reset_optimizer
-    enable_logging = options.enable_logging
+    learning_rate = args.learning_rate
+    batch_size = args.batch_size
+    num_epochs = args.num_epochs
+    window_size = args.window_size
+    stride_size = args.stride_size
+    train_test_ratio = args.train_test_ratio
+    early_stopping_patience = args.early_stopping_patience
+    use_transposition = args.use_transposition
+    control_ratio = args.control_ratio
+    teacher_forcing_ratio = args.teacher_forcing_ratio
+    reset_optimizer = args.reset_optimizer
+    enable_logging = args.enable_logging
 
     event_dim = EventSeq.dim()
     model_config = config.model
-    model_params = utils.params2dict(options.model_params)
+    model_params = utils.params2dict(args.model_params)
     model_config.update(model_params)
     device = config.device
 
@@ -379,7 +360,7 @@ def main(options=None):
     logger.info('Loading session')
     model, optimizer = load_session(sess_path, model_config, device, learning_rate, reset_optimizer)
     logger.info(model)
-
+    
     logger.info('Loading dataset')
     dataset = load_dataset(data_path)
     logger.info(dataset)

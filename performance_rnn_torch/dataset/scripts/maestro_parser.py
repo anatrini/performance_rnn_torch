@@ -1,30 +1,30 @@
-import optparse
+import argparse
 import os
 import pandas as pd
 import shutil
 import sys
 
 ### This script MUST be run inside the folder containing the maestro folder!!!
-def get_options():
-    parser = optparse.OptionParser()
+def get_arguments():
+    parser = argparse.ArgumentParser()
 
-    parser.add_option('-c', '--composer',
+    parser.add_argument('-c', '--composer',
                       dest='composer',
                       type='string',
                       default=None,
                       help='Name of the composer you want to select midi files of')
     
-    parser.add_option('-s', '--output_dir',
+    parser.add_argument('-s', '--output_dir',
                       dest='output_dir',
                       default=None,
                       help='Name of the directory you want to save selected midi files to')
     
-    parser.add_option('-m', '--maestro_file',
+    parser.add_argument('-m', '--maestro_file',
                       dest='maestro_file',
                       default=None,
                       help='The path to the .csv Maestro\'s dataset content')
     
-    return parser.parse_args()[0]
+    return parser.parse_args()
 
 
 
@@ -55,11 +55,13 @@ def copy_select(composer, output_dir, csv_filepath):
             print(f"File not found: '{file}'")
 
 
-def main():
-    options = get_options()
-    composer = options.composer
-    output_dir = options.output_dir
-    maestro_file = options.maestro_file
+def main(args=None):
+    if args is None:
+        args = get_arguments()
+
+    composer = args.composer
+    output_dir = args.output_dir
+    maestro_file = args.maestro_file
 
     copy_select(composer, output_dir, maestro_file)
 

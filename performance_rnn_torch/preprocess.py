@@ -1,5 +1,5 @@
+import argparse
 import hashlib
-import optparse
 import os
 import torch
 import utils
@@ -16,22 +16,22 @@ logger = setup_logger('Preprocess logger')
 # Settings
 #========================================================================
 
-def get_options():
-    parser = optparse.OptionParser()
+def get_arguments():
+    parser = argparse.ArgumentParser()
 
-    parser.add_option('-m', '--midi_root',
+    parser.add_argument('-m', '--midi_root',
                       dest='midi_root',
                       type='string',
                       default=None,
                       help='The root directory of MIDI files')
     
-    parser.add_option('-s', '--save_dir',
+    parser.add_argument('-s', '--save_dir',
                       dest='save_dir',
                       type='string',
                       default=None,
                       help='The directory to save the processed data')
     
-    parser.add_option('-w', '--num_workers',
+    parser.add_argument('-w', '--num_workers',
                       dest='num_workers',
                       default=0,
                       type='int',
@@ -73,13 +73,13 @@ def preprocess_midi_files_under(midi_root, save_dir, num_workers):
 
     logger.info('Done')
 
-def main(options=None):
-    if options is None:
-        options = get_options()
+def main(args=None):
+    if args is None:
+        args = get_arguments()
 
-    midi_root = options.midi_root
-    save_dir = options.save_dir
-    num_workers = options.num_workers
+    midi_root = args.midi_root
+    save_dir = args.save_dir
+    num_workers = args.num_workers
 
     preprocess_midi_files_under(midi_root, save_dir, num_workers)
 
