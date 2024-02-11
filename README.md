@@ -1,6 +1,6 @@
-![generated-sample-sheet-music](https://github.com/anatrini/performance-rnn-torch/blob/master/imgs/score.png)
+![generated-sample-sheet-music](https://github.com/anatrini/performance-rnn-torch/performance-rnn-torch/blob/master/imgs/score.png)
 
-# Performance RNN - PyTorch
+# performance_rnn_torch
 
 This repository contains a PyTorch implementation of Performance RNN, a model inspired by the work of Ian Simon and Sageev Oore on "Performance RNN: Generating Music with Expressive Timing and Dynamics," as presented in the Magenta Blog in 2017. [https://magenta.tensorflow.org/performance-rnn](https://magenta.tensorflow.org/performance-rnn).
 
