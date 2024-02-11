@@ -1,4 +1,4 @@
-![generated-sample-sheet-music](https://github.com/anatrini/Performance-RNN-PyTorch/blob/master/imgs/score.png)
+![generated-sample-sheet-music](https://github.com/anatrini/performance-rnn-torch/blob/master/imgs/score.png)
 
 # Performance RNN - PyTorch
 
