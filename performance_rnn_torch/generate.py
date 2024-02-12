@@ -23,7 +23,7 @@ def get_arguments():
 
     parser.add_argument('-c', '--control',
                       dest='control',
-                      type='string',
+                      type=str,
                       default=None,
                       help=('control or a processed data file path, '
                             'e.g., "PITCH_HISTOGRAM;NOTE_DENSITY" like '
@@ -34,49 +34,57 @@ def get_arguments():
 
     parser.add_argument('-b', '--batch-size',
                       dest='batch_size',
-                      type='int',
-                      default=config.generate['batch_size'])
+                      type=int,
+                      default=config.generate['batch_size'],
+                      help='Number of sesequences to generate in a batch')
 
     parser.add_argument('-s', '--session',
                       dest='sess_path',
-                      type='string',
+                      type=str,
                       default='save/train.sess',
-                      help='session file containing the trained model')
+                      help='Path to the session file containing the trained model')
 
     parser.add_argument('-o', '--output-dir',
                       dest='output_dir',
-                      type='string',
-                      default='output/')
+                      type=str,
+                      default='output/',
+                      help='Directory to save the generated MIDI sequences')
 
     parser.add_argument('-l', '--max-length',
                       dest='max_len',
-                      type='int',
-                      default=config.generate['max_len'])
+                      type=int,
+                      default=config.generate['max_len'],
+                      help='Maximum length of the generated sequences')
 
     parser.add_argument('-g', '--greedy-ratio',
                       dest='greedy_ratio',
-                      type='float',
-                      default=config.generate['greedy_ratio'])
+                      type=float,
+                      default=config.generate['greedy_ratio'],
+                      help='Ratio controlling the balance between choosing the highest probability event (greedy) and exploring other options during MIDI event generation')
 
     parser.add_argument('-B', '--beam-size',
                       dest='beam_size',
-                      type='int',
-                      default=config.generate['beam_size'])
+                      type=int,
+                      default=config.generate['beam_size'],
+                      help='Size of the beam for beam search')
 
     parser.add_argument('-S', '--stochastic-beam-search',
                       dest='stochastic_beam_search',
                       action='store_true',
-                      default=config.generate['stochastic_beam_search'])
+                      default=config.generate['stochastic_beam_search'],
+                      help='Enable stochastic beam search')
 
     parser.add_argument('-T', '--temperature',
                       dest='temperature',
-                      type='float',
-                      default=config.generate['temperature'])
+                      type=float,
+                      default=config.generate['temperature'],
+                      help='Parameter to control the randomness in the probability distribution during MIDI event generation')
 
     parser.add_argument('-z', '--init-zero',
                       dest='init_zero',
                       action='store_true',
-                      default=config.generate['init_zero'])
+                      default=config.generate['init_zero'],
+                      help='Initialize the hidden state to zero')
 
     return parser.parse_args()
 

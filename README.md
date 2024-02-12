@@ -1,4 +1,4 @@
-![generated-sample-sheet-music](https://github.com/anatrini/performance-rnn-torch/imgs/score.png)
+![score](./imgs/score.png)
 
 # performance_rnn_torch
 
@@ -117,7 +117,7 @@ or
 
     `python train.py --help`
 
-![training-figure](https://github.com/anatrini/Performance-RNN-PyTorch/blob/master/imgs/tensorboard.png)
+![tensorboard](./imgs/tensorboard.png)
 
 - Hyperparameters optimization
 Before initiating the model training process, it's advisable to identify the optimal settings for both model architecture and training hyperparameters. This can be achieved through the following step:
@@ -158,7 +158,7 @@ For a comprehensive list of available options, you can run:
 
 Please check below the synthax of conditioning options.
     
-![generated-sample-1](https://github.com/anatrini/Performance-RNN-PyTorch/blob/master/imgs/piano_roll.png)
+![piano_roll](./imgs/piano_roll.png)
 
 
 ## Generated Samples

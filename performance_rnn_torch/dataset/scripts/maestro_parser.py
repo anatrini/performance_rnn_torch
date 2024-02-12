@@ -10,17 +10,19 @@ def get_arguments():
 
     parser.add_argument('-c', '--composer',
                       dest='composer',
-                      type='string',
+                      type=str,
                       default=None,
-                      help='Name of the composer you want to select midi files of')
+                      help='Name of the composer you want to select MIDI files of')
     
     parser.add_argument('-s', '--output_dir',
                       dest='output_dir',
+                      type=str,
                       default=None,
-                      help='Name of the directory you want to save selected midi files to')
+                      help='Name of the directory you want to save selected MIDI files to')
     
     parser.add_argument('-m', '--maestro_file',
                       dest='maestro_file',
+                      type=str,
                       default=None,
                       help='The path to the .csv Maestro\'s dataset content')
     

@@ -30,83 +30,98 @@ def get_arguments():
     parser.add_argument('-S', '--session',
                       dest='sess_path',
                       type=str,
-                      default='save/train.sess')
+                      default='save/train.sess',
+                      help='Path to the session file for training. You can read an existing optim.sess file to use the best hyperparameters combination found during the optimization session')
 
     parser.add_argument('-d', '--dataset',
                       dest='data_path',
                       type=str,
-                      default='dataset/processed/')
+                      default='dataset/processed/',
+                      help='Path to the processed dataset for training')
 
     parser.add_argument('-i', '--saving-interval',
                       dest='saving_interval',
                       type=int,
-                      default=config.train['saving_interval'])
+                      default=config.train['saving_interval'],
+                      help='Interval (in seconds) at which the model is saved during training')
 
     parser.add_argument('-b', '--batch-size',
                       dest='batch_size',
                       type=int,
-                      default=config.train['batch_size'])
+                      default=config.train['batch_size'],
+                      help='Number of samples per gradient update')
     
     parser.add_argument('-e', '--num_epochs',
                       dest='num_epochs',
                       type=int,
-                      default=config.train['num_epochs'])
+                      default=config.train['num_epochs'],
+                      help='Number of epochs to train the model')
 
     parser.add_argument('-l', '--learning-rate',
                       dest='learning_rate',
                       type=float,
-                      default=config.train['learning_rate'])
+                      default=config.train['learning_rate'],
+                      help='Learning rate for the optimizer')
 
     parser.add_argument('-w', '--window-size',
                       dest='window_size',
                       type=int,
-                      default=config.train['window_size'])
+                      default=config.train['window_size'],
+                      help='Number of consecutive MIDI events to consider in a sequence')
 
     parser.add_argument('-s', '--stride-size',
                       dest='stride_size',
                       type=int,
-                      default=config.train['stride_size'])
+                      default=config.train['stride_size'],
+                      help='Number of steps to advance in the input data for each new sequence in the batch')
     
     parser.add_argument('-r', '--train_test_ratio',
                       dest='train_test_ratio',
                       type=float,
-                      default=config.train['train_test_ratio'])
+                      default=config.train['train_test_ratio'],
+                      help='Ratio of data to use for training vs testing')
     
     parser.add_argument('-p', '--early_stopping_patience',
                       dest='early_stopping_patience',
                       type=int,
-                      default=config.train['early_stopping_patience'])
+                      default=config.train['early_stopping_patience'],
+                      help='Number of epochs with no improvement after which training will be stopped')
 
     parser.add_argument('-c', '--control-ratio',
                       dest='control_ratio',
                       type=float,
-                      default=config.train['control_ratio'])
+                      default=config.train['control_ratio'],
+                      help='Ratio for controlling the balance between exploration and exploitation during training')
 
     parser.add_argument('-f', '--teacher-forcing-ratio',
                       dest='teacher_forcing_ratio',
                       type=float,
-                      default=config.train['teacher_forcing_ratio'])
+                      default=config.train['teacher_forcing_ratio'],
+                      help='Ratio for controlling the use of teacher forcing during training. A higher ratio means more often using the true previous output instead of the predicted output from the last time step as input for the current time step')
 
     parser.add_argument('-T', '--use-transposition',
                       dest='use_transposition',
                       action='store_true',
-                      default=config.train['use_transposition'])
+                      default=config.train['use_transposition'],
+                      help='Enable transposition of MIDI events during training')
 
     parser.add_argument('-M', '--model-params',
                       dest='model_params',
                       type=str,
-                      default=''
-                      )
+                      default='',
+                      help='Additional parameters for the model')
                       
     parser.add_argument('-R', '--reset-optimizer',
                       dest='reset_optimizer',
                       action='store_true',
-                      default=False)
+                      default=False,
+                      help='Reset the optimizer to its initial state before training')
                       
     parser.add_argument('-L', '--enable-logging',
                       dest='enable_logging',
                       action='store_true',
-                      default=True)
+                      default=True,
+                      help='Enable logging of training progress for metrics visualization')
 
     return parser.parse_args()
 

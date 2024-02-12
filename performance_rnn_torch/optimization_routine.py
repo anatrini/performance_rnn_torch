@@ -14,23 +14,27 @@ def get_arguments():
 
     parser.add_argument('-S', '--session',
                       dest='sess_path',
-                      type='string',
-                      default='save/train.sess')
+                      type=str,
+                      default='save/optimization.sess',
+                      help='The path to save the optimization session file. Using the -Sddment in the training script you can use this file to read hyperparameters from during the training session')
 
     parser.add_argument('-d', '--dataset',
                       dest='data_path',
-                      type='string',
-                      default='dataset/processed')
+                      type=str,
+                      default='dataset/processed',
+                      help='The dataset to be used for the optimization routine')
     
     parser.add_argument('-R', '--reset-optimizer',
                       dest='reset_optimizer',
                       action='store_true',
-                      default=False)
+                      default=False,
+                      help='Reset the optimizer to its initial state. Useful when starting a new type of training or training on a new dataset')
     
     parser.add_argument('-L', '--enable-logging',
                       dest='enable_logging',
                       action='store_true',
-                      default=False)
+                      default=False,
+                      help='Create an optimization log file')
     
     return parser.parse_args()
 
