@@ -117,8 +117,6 @@ or
 
     `python train.py --help`
 
-![tensorboard](./imgs/tensorboard.png)
-
 - Hyperparameters optimization
 Before initiating the model training process, it's advisable to identify the optimal settings for both model architecture and training hyperparameters. This can be achieved through the following step:
 
@@ -128,6 +126,8 @@ Before initiating the model training process, it's advisable to identify the opt
 The model's performance can be observed using Tensorboard. Type in the terminal:
 
     `tensorboard --logdir <path to runs folder>`
+
+![tensorboard](./imgs/tensorboard.png)
 
 - Generating
 
