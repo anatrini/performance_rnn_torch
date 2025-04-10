@@ -21,23 +21,23 @@ def get_arguments():
 
     parser.add_argument('-m', '--midi_root',
                       dest='midi_root',
-                      type='string',
+                      type=str,
                       default=None,
                       help='The root directory of MIDI files')
     
     parser.add_argument('-s', '--save_dir',
                       dest='save_dir',
-                      type='string',
+                      type=str,
                       default=None,
                       help='The directory to save the processed data')
     
     parser.add_argument('-w', '--num_workers',
                       dest='num_workers',
                       default=0,
-                      type='int',
+                      type=int,
                       help='The number of worker processes to use. Default 0, preprocessing is executing on a single thread')
     
-    return parser.parse_args()[0]
+    return parser.parse_args()
 
 def preprocess_midi(path):
     note_seq = NoteSeq.from_midi_file(path)

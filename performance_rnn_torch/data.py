@@ -19,7 +19,7 @@ class Dataset:
         if verbose:
             paths = tqdm(list(paths), desc=root)
         for path in paths:
-            eventseq, controlseq = torch.load(path)
+            eventseq, controlseq = torch.load(path, weights_only=False)
             controlseq = ControlSeq.recover_compressed_array(controlseq)
             assert len(eventseq) == len(controlseq)
             self.samples.append((eventseq, controlseq))
