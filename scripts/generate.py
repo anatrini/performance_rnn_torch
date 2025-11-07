@@ -7,9 +7,12 @@ It supports both standard generation and beam search generation with
 configurable control parameters.
 """
 import argparse
+import glob
 import numpy as np
 import os
+import re
 import torch
+from pathlib import Path
 
 from performance_rnn_torch import config
 from performance_rnn_torch.config import device, model as model_config
@@ -20,6 +23,67 @@ from performance_rnn_torch.utils import helpers, paths
 
 
 logger = setup_logger('Generator logger')
+
+
+# ========================================================================
+# Helper Functions
+# ========================================================================
+
+def get_next_file_number(output_dir, model_name):
+    """
+    Find the next available file number for a given model name.
+
+    Args:
+        output_dir: Directory containing generated MIDI files
+        model_name: Name extracted from the model session file
+
+    Returns:
+        int: Next available number (starts at 1)
+    """
+    if not os.path.exists(output_dir):
+        return 1
+
+    # Find all files matching the pattern: {model_name}_*.mid
+    pattern = os.path.join(output_dir, f"{model_name}_*.mid")
+    existing_files = glob.glob(pattern)
+
+    if not existing_files:
+        return 1
+
+    # Extract numbers from filenames
+    numbers = []
+    for filepath in existing_files:
+        filename = os.path.basename(filepath)
+        # Match pattern: {model_name}_{number}.mid
+        match = re.match(rf"{re.escape(model_name)}_(\d+)\.mid", filename)
+        if match:
+            numbers.append(int(match.group(1)))
+
+    if not numbers:
+        return 1
+
+    # Return next number
+    return max(numbers) + 1
+
+
+def extract_model_name(sess_path):
+    """
+    Extract a meaningful model name from the session path.
+
+    Args:
+        sess_path: Path to the session file (e.g., "models/jsbach_test.sess")
+
+    Returns:
+        str: Model name (e.g., "jsbach_test")
+    """
+    # Get filename without extension
+    sess_path = Path(sess_path)
+    model_name = sess_path.stem  # Removes .sess extension
+
+    # Clean up the name to be filesystem-safe
+    model_name = re.sub(r'[^\w\-_]', '_', model_name)
+
+    return model_name
 
 
 # ========================================================================
@@ -102,17 +166,18 @@ def get_arguments():
 # ========================================================================
 
 def generate(model,
-             init, 
-             max_len,  
-             controls, 
-             greedy_ratio, 
-             temperature, 
-             output_dir, 
-             use_beam_search, 
-             beam_size, 
+             init,
+             max_len,
+             controls,
+             greedy_ratio,
+             temperature,
+             output_dir,
+             model_name,
+             use_beam_search,
+             beam_size,
              stochastic_beam_search
              ):
-    
+
     with torch.no_grad():
         if use_beam_search:
             outputs = model.beam_search(init, max_len, beam_size, controls=controls, temperature=temperature, stochastic=stochastic_beam_search, verbose=True)
@@ -122,8 +187,14 @@ def generate(model,
     outputs = outputs.cpu().numpy().T
 
     os.makedirs(output_dir, exist_ok=True)
+
+    # Get the starting file number for this batch
+    start_number = get_next_file_number(output_dir, model_name)
+
     for i, output in enumerate(outputs):
-        name = f'output-{i:03d}.mid'
+        # Create filename with model name and incrementing number
+        file_number = start_number + i
+        name = f'{model_name}_{file_number:03d}.mid'
         path = os.path.join(output_dir, name)
         n_notes = helpers.event_indices_to_midi_file(output, path)
         logger.info(f'===> {path} ({n_notes} notes)')
@@ -208,6 +279,10 @@ def main(args=None):
 
     assert max_len > 0, 'either max length or control sequence length should be given'
 
+    # Extract model name from session path for file naming
+    model_name = extract_model_name(sess_path)
+    logger.info(f'Model name: {model_name}')
+
     state = torch.load(sess_path, map_location=device)
     model = PerformanceRNN(**state['model_config']).to(device)
     model.load_state_dict(state['model_state'])
@@ -218,7 +293,7 @@ def main(args=None):
     else:
         init = torch.randn(batch_size, model.init_dim).to(device)
 
-    generate(model, init, max_len, controls, greedy_ratio, temperature, output_dir, use_beam_search, beam_size, stochastic_beam_search)
+    generate(model, init, max_len, controls, greedy_ratio, temperature, output_dir, model_name, use_beam_search, beam_size, stochastic_beam_search)
 
 
 

@@ -268,7 +268,8 @@ class EventSeq:
         for event in self.events:
             if event.type == 'note_on':
                 pitch = event.value + EventSeq.pitch_range.start
-                note = Note(velocity, pitch, time, None)
+                # Create note with temporary end time (will be updated by note_off or cleanup)
+                note = Note(velocity, pitch, time, time + DEFAULT_NOTE_LENGTH)
                 notes.append(note)
                 last_notes[pitch] = note
 
