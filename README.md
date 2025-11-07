@@ -18,14 +18,12 @@ A modern PyTorch implementation of Google's [Performance RNN](https://magenta.te
 - [Usage](#usage)
   - [Data Preparation](#data-preparation)
   - [Preprocessing](#preprocessing)
+  - [Hyperparameter Optimization](#hyperparameter-optimization-recommended)
   - [Training](#training)
   - [Generation](#generation)
-  - [Hyperparameter Optimization](#hyperparameter-optimization)
 - [Configuration](#configuration)
-- [Environment Variables](#environment-variables)
 - [Development](#development)
 - [Citation](#citation)
-- [License](#license)
 
 ## Overview
 
@@ -128,30 +126,22 @@ conda activate py_magenta
 # 1. Get MIDI files from Maestro dataset (example: Claude Debussy)
 python scripts/prepare_data.py --composer "Claude Debussy"
 
-# 2. Preprocess MIDI files into training data (use all CPU cores)
+# 2. Preprocess MIDI files into training data
 python scripts/preprocess.py --num_workers -1
 
-# 3. Find optimal hyperparameters (recommended for best results)
+# 3. Optimize hyperparameters (optional but recommended, ~1-2 hours)
 python scripts/optimization_routine.py --n-trials 20
 
 # 4. Train the model with optimized settings
-python scripts/train.py --session models/optimization.sess
+python scripts/train.py --session models/optimization.sess --num-epochs 50
 
 # 5. Generate new music
-python scripts/generate.py --session models/optimization.sess
+python scripts/generate.py --session models/optimization.sess --num-samples 3
 ```
 
-**That's it!** The scripts automatically handle file organization and paths.
-
-### Quick Start (Skip Optimization)
-
-If you want to train quickly without optimization:
-
+**Skip optimization?** Use default hyperparameters instead:
 ```bash
-conda activate py_magenta
-python scripts/prepare_data.py --composer "Claude Debussy"
-python scripts/preprocess.py --num_workers -1
-python scripts/train.py  # Uses default hyperparameters
+python scripts/train.py --num-epochs 50
 python scripts/generate.py
 ```
 
@@ -217,482 +207,161 @@ performance_rnn_torch/              # Project root directory
 
 ## Usage
 
-### Complete Example Workflow
+### Data Preparation
 
-Here's a complete example from start to finish with hyperparameter optimization:
+**Option A: Use Maestro Dataset (Recommended)**
+
+Download [Maestro v3.0.0](https://magenta.tensorflow.org/datasets/maestro) and extract to `data/maestro-v3.0.0/`.
 
 ```bash
-# Activate environment
-conda activate py_magenta
-
-# 1. List available composers in Maestro dataset
+# List available composers
 python scripts/prepare_data.py --list
 
-# 2. Extract MIDI files for Claude Debussy
-#    (automatically saves to data/midi/claude_debussy/)
+# Extract MIDI files for a composer (auto-saves to data/midi/{composer}/)
 python scripts/prepare_data.py --composer "Claude Debussy"
-
-# 3. Preprocess MIDI files into training data
-#    (reads from data/midi/, saves to data/processed/)
-#    Use -1 to utilize all CPU cores for faster processing
-python scripts/preprocess.py --num_workers -1
-
-# 4. Find optimal hyperparameters (20 trials for quick test, 100+ for best results)
-#    (tests different model architectures and training settings)
-#    (saves best config to models/optimization.sess)
-python scripts/optimization_routine.py --n-trials 20
-
-# 5. Train the model with optimized hyperparameters
-#    (reads from data/processed/, uses models/optimization.sess for best settings)
-python scripts/train.py --session models/optimization.sess --num-epochs 50
-
-# 6. Generate 3 new piano pieces using the optimized model
-#    (reads optimized model, saves MIDI to output/)
-python scripts/generate.py --session models/optimization.sess --num-samples 3
 ```
 
-**That's the complete workflow!** All paths are automatic - no manual file organization needed.
+**Option B: Use Your Own MIDI Files**
 
----
-
-### Detailed Steps
-
-### Step 1: Prepare MIDI Data
-
-You have three options for getting MIDI data:
-
-#### Option A: Use Maestro Dataset (Recommended)
-
-The easiest way is to use the Maestro dataset. First, download it:
-
-```bash
-# Download Maestro v3.0.0 from:
-# https://magenta.tensorflow.org/datasets/maestro
-
-# Extract to data/maestro-v3.0.0/
-```
-
-Then list available composers:
-
-```bash
-python scripts/prepare_data.py --list
-```
-
-Extract MIDI files for your chosen composer (files are automatically saved to `data/midi/{composer}/`):
-
-```bash
-# Example: Claude Debussy
-python scripts/prepare_data.py --composer "Claude Debussy"
-
-# Example: Johann Sebastian Bach
-python scripts/prepare_data.py --composer "Johann Sebastian Bach"
-
-# Example: Franz Schubert
-python scripts/prepare_data.py --composer "Franz Schubert"
-```
-
-**That's it!** The script automatically:
-- Finds the Maestro dataset
-- Extracts all MIDI files for the composer
-- Saves them to `data/midi/{composer_name}/`
-- No manual file organization needed!
-
-#### Option B: Use Your Own MIDI Files
-
-Simply place your MIDI files in `data/midi/` organized by subdirectories:
-
+Place MIDI files in `data/midi/` organized by subdirectories:
 ```
 data/midi/
 ├── composer_1/
 │   ├── piece1.mid
-│   ├── piece2.mid
-│   └── piece3.mid
-├── composer_2/
-│   ├── piece1.mid
-│   └── piece2.mid
+└── composer_2/
+    └── piece2.mid
 ```
 
-The preprocessing script will:
-- Automatically find and process all `.mid` and `.midi` files in subdirectories
-- **Preserve the folder structure** in `data/processed/`:
-  ```
-  data/processed/
-  ├── composer_1/
-  │   ├── piece1-<hash>.data
-  │   ├── piece2-<hash>.data
-  │   └── piece3-<hash>.data
-  ├── composer_2/
-  │   ├── piece1-<hash>.data
-  │   └── piece2-<hash>.data
-  ```
+### Preprocessing
 
-### Step 2: Preprocess MIDI Files
-
-Convert MIDI files to training data (uses defaults - reads from `data/midi/`, saves to `data/processed/`):
+Convert MIDI files to training data (reads from `data/midi/`, saves to `data/processed/`):
 
 ```bash
-# Use default (1 worker)
-python scripts/preprocess.py
-
-# Use all CPU cores for faster processing (recommended)
+# Use all CPU cores (recommended)
 python scripts/preprocess.py --num_workers -1
 
-# Use specific number of workers
+# Or use specific number of workers
 python scripts/preprocess.py --num_workers 4
 ```
 
-**What it does:**
-The script automatically:
-- Finds all MIDI files in the source directory
-- Converts each MIDI file to training data (`.data` files)
-- **Preserves the composer folder name** in the output
-
-**Behavior:**
-```bash
-# Process all composers (default)
-python scripts/preprocess.py
-# Finds: data/midi/*/piece.mid
-# Saves: data/processed/*/piece-<hash>.data
-
-# Process specific composer
-python scripts/preprocess.py --midi_root data/midi/johann_sebastian_bach
-# Finds: data/midi/johann_sebastian_bach/piece.mid
-# Saves: data/processed/johann_sebastian_bach/piece-<hash>.data
-```
-
-**Example:**
-```
-Input:  data/midi/claude_debussy/piece1.mid
-Output: data/processed/claude_debussy/piece1-<hash>.data
-
-Input:  data/midi/bach/piece2.mid
-Output: data/processed/bach/piece2-<hash>.data
-```
-
-**Parameters:**
-- `--midi_root`: Source directory (default: `data/midi/`, processes all subfolders)
+**Key Parameters:**
+- `--midi_root`: Source directory (default: `data/midi/`)
 - `--save_dir`: Output directory (default: `data/processed/`)
-- `--num_workers`: Number of parallel workers (default: 1, use -1 for all CPU cores)
+- `--num_workers`: Parallel workers (default: 1, use -1 for all cores)
 
-### Step 3: Optimize Hyperparameters (Recommended)
+### Hyperparameter Optimization (Recommended)
 
-**Before training, find the best hyperparameters for your dataset using Optuna:**
+Find optimal hyperparameters using Optuna (tests model architecture, batch size, learning rate, etc.):
 
 ```bash
-# Quick optimization (20 trials, ~1-2 hours)
+# Quick optimization (~1-2 hours)
 python scripts/optimization_routine.py --n-trials 20
 
-# Thorough optimization (100 trials, ~5-10 hours, best results)
+# Thorough optimization (~5-10 hours, best results)
 python scripts/optimization_routine.py --n-trials 100
-
-# With all options specified
-python scripts/optimization_routine.py \
-  --n-trials 50 \
-  --dataset data/processed/ \
-  --session models/my_optimization.sess \
-  --enable-logging
 ```
 
-**What it does:**
-The optimization script automatically tests different combinations of:
-- **Model architecture**: hidden dimensions, GRU layers, dropout rates
-- **Training settings**: batch size, learning rate, window size, stride size
-- **Control parameters**: control ratio, teacher forcing ratio
+Best parameters are saved to `models/optimization.sess` for use in training.
 
-**Results:**
-- Best parameters are saved to `models/optimization.sess`
-- You can then use this for training with optimal settings
-
-**Parameters:**
-- `-n`, `--n-trials`: Number of optimization trials (default: 20, recommended: 100+)
+**Key Parameters:**
+- `-n`, `--n-trials`: Number of optimization trials (default: 20)
 - `-d`, `--dataset`: Preprocessed data path (default: `data/processed/`)
 - `-S`, `--session`: Where to save results (default: `models/optimization.sess`)
-- `-R`, `--reset-optimizer`: Reset optimizer state (use when starting fresh)
-- `-L`, `--enable-logging`: Enable TensorBoard logging for each trial (creates many log files)
+- `-L`, `--enable-logging`: Enable TensorBoard logging for each trial
 
-**Skip optimization?** You can skip this step and use default hyperparameters, but optimization usually gives much better results.
+### Training
 
-### Step 4: Train the Model
-
-Train using the optimized hyperparameters:
+Train using optimized hyperparameters:
 
 ```bash
-# Use optimized hyperparameters (recommended)
+# Use optimized settings
 python scripts/train.py --session models/optimization.sess --num-epochs 50
 
 # Or use default hyperparameters
 python scripts/train.py --num-epochs 50
 ```
 
-**Common options:**
-```bash
-# Train for more epochs
-python scripts/train.py --session models/optimization.sess --num-epochs 100
+**Monitor training:** `tensorboard --logdir runs/` (open http://localhost:6006)
 
-# Use larger batch size (if you have GPU memory)
-python scripts/train.py --batch-size 128
-
-# Train from scratch with custom session name
-python scripts/train.py --session models/my_model.sess --num-epochs 50
-```
-
-**Monitor training in real-time:**
-```bash
-# In another terminal
-tensorboard --logdir runs/
-# Then open http://localhost:6006 in your browser
-```
-
-**All parameters:**
+**Key Parameters:**
 - `--session, -S`: Model checkpoint path (default: `models/train.sess`)
 - `--dataset, -d`: Preprocessed data path (default: `data/processed/`)
 - `--batch-size, -b`: Batch size (default: 64)
 - `--num-epochs, -e`: Number of epochs (default: 24)
 - `--learning-rate, -l`: Learning rate (default: 0.001)
 - `--window-size, -w`: Sequence length (default: 200)
-- `--enable-logging`: Enable TensorBoard (default: True)
 
-### Step 5: Generate Music
+### Generation
 
 Generate new piano pieces from your trained model:
 
 ```bash
 # Use the optimized model
-python scripts/generate.py --session models/optimization.sess
+python scripts/generate.py --session models/optimization.sess --num-samples 3
 
-# Or use default model
+# Use default model
 python scripts/generate.py
 ```
 
-This generates 1 MIDI file and saves to `output/`.
+Generated MIDI files are saved to `output/`.
 
-**Common options:**
-```bash
-# Generate 5 pieces from optimized model
-python scripts/generate.py --session models/optimization.sess --num-samples 5
-
-# Generate longer pieces
-python scripts/generate.py --session models/optimization.sess --max-len 2000
-
-# More creative/random output (higher temperature)
-python scripts/generate.py --session models/optimization.sess --temperature 1.5
-
-# More conservative output (lower temperature)
-python scripts/generate.py --session models/optimization.sess --temperature 0.8
-
-# Use custom model
-python scripts/generate.py --session models/my_model.sess
-```
-
-Generated MIDI files will be saved to `output/` and can be played with any MIDI player or imported into music software.
-
-**All parameters:**
+**Key Parameters:**
 - `--session, -S`: Trained model path (default: `models/train.sess`)
 - `--output, -O`: Output directory (default: `output/`)
 - `--num-samples, -n`: Number of pieces (default: 1)
 - `--max-len, -l`: Sequence length (default: 1000)
-- `--temperature, -t`: Randomness (default: 1.0, range: 0.1-2.0)
-
----
+- `--temperature, -t`: Randomness/creativity (default: 1.0, range: 0.1-2.0)
 
 ## Configuration
 
-### Default Configuration
+Default settings are in `performance_rnn_torch/config.py`. Key configurations:
 
-Edit `performance_rnn_torch/config.py` to change default settings:
+- **Model**: `hidden_dim` (512), `gru_layers` (3), `gru_dropout` (0.3)
+- **Training**: `batch_size` (64), `num_epochs` (24), `window_size` (200), `learning_rate` (0.001)
+- **Generation**: `max_len` (1000), `temperature` (1.0)
 
-```python
-# Model configuration (lazily loaded)
-model = {
-    'init_dim': 32,
-    'event_dim': EventSeq.dim(),  # Automatically computed
-    'control_dim': ControlSeq.dim(),  # Automatically computed
-    'hidden_dim': 512,
-    'gru_layers': 3,
-    'gru_dropout': 0.3,
-}
-
-# Training configuration
-train = {
-    'batch_size': 64,
-    'num_epochs': 24,
-    'window_size': 200,
-    'stride_size': 10,
-    'learning_rate': 0.001,
-    'train_test_ratio': 0.3,
-    'early_stopping_patience': 5,
-    'use_transposition': False,
-    'control_ratio': 1.0,
-    'teacher_forcing_ratio': 1.0,
-    'saving_interval': 180,  # seconds
-}
-
-# Generation configuration
-generate = {
-    'batch_size': 8,
-    'max_len': 1000,
-    'greedy_ratio': 1.0,
-    'beam_size': 0,
-    'temperature': 1.0,
-    'stochastic_beam_search': False,
-    'init_zero': False,
-}
-```
-
-### Programmatic Usage
-
-```python
-from performance_rnn_torch import PerformanceRNN, Dataset, config
-from performance_rnn_torch.utils import paths
-import torch
-
-# Load dataset
-dataset = Dataset(str(paths.processed_dir), verbose=True)
-train_data, test_data = dataset.train_test_split()
-
-# Create model
-model = PerformanceRNN(**config.model).to(config.device)
-print(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
-
-# Training loop (simplified)
-optimizer = torch.optim.Adam(model.parameters(), lr=config.train['learning_rate'])
-for epoch in range(config.train['num_epochs']):
-    for events, controls in train_data.batches(
-        config.train['batch_size'],
-        config.train['window_size'],
-        config.train['stride_size']
-    ):
-        # Training step
-        output, losses = model(events, controls)
-        loss = losses['loss']
-
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-    # Save checkpoint
-    torch.save({
-        'model_state': model.state_dict(),
-        'optimizer_state': optimizer.state_dict(),
-        'epoch': epoch,
-    }, paths.get_model_path('checkpoint'))
-```
-
-## Environment Variables
-
-Customize paths using environment variables:
-
+**Environment Variables** (optional path customization):
 ```bash
-# Data directories
 export PERFORMANCE_RNN_DATA_DIR=/path/to/data
-export PERFORMANCE_RNN_MIDI_DIR=/path/to/midi
-export PERFORMANCE_RNN_PROCESSED_DIR=/path/to/processed
-
-# Output directories
 export PERFORMANCE_RNN_MODELS_DIR=/path/to/models
 export PERFORMANCE_RNN_OUTPUT_DIR=/path/to/output
-export PERFORMANCE_RNN_LOGS_DIR=/path/to/logs
-export PERFORMANCE_RNN_RUNS_DIR=/path/to/runs
 ```
 
 ## Development
 
-### Setting Up Development Environment
-
 ```bash
-# Activate your conda environment
-conda activate py_magenta
-
 # Install with development dependencies
 pip install -e ".[dev]"
 
-# Install pre-commit hooks
-pre-commit install
-```
-
-### Code Quality
-
-```bash
-# Activate your conda environment
-conda activate py_magenta
-
-# Format code
+# Code quality
 black performance_rnn_torch/ scripts/
-isort performance_rnn_torch/ scripts/
-
-# Lint code
 flake8 performance_rnn_torch/ scripts/
 
-# Type checking
-mypy performance_rnn_torch/
-```
-
-### Running Tests
-
-```bash
-# Activate your conda environment
-conda activate py_magenta
-
-# Run all tests
+# Run tests
 pytest
 
-# Run with coverage
-pytest --cov=performance_rnn_torch --cov-report=html
-
-# Run specific test file
-pytest tests/test_model.py
-```
-
-### Building Documentation
-
-```bash
-# Activate your conda environment
-conda activate py_magenta
-
-cd docs/
-make html
+# Build docs
+cd docs/ && make html
 ```
 
 ## Citation
-
-If you use this code in your research, please cite:
 
 ```bibtex
 @misc{anatrini2024performancernn,
   author = {Anatrini, Alessandro},
   title = {Performance RNN in PyTorch},
   year = {2024},
-  publisher = {GitHub},
   url = {https://github.com/anatrini/performance_rnn_torch}
 }
 ```
 
-Original Performance RNN paper:
+Original work: [Performance RNN: Generating Music with Expressive Timing and Dynamics](https://magenta.tensorflow.org/performance-rnn) by Simon & Oore (2017)
 
-```bibtex
-@inproceedings{simon2017performance,
-  title={Performance RNN: Generating Music with Expressive Timing and Dynamics},
-  author={Simon, Ian and Oore, Sageev},
-  year={2017},
-  organization={Magenta}
-}
-```
+## License & Contact
 
-## License
+MIT License - [Alessandro Anatrini](mailto:alessandro.anatrini@hfmt-hamburg.de) - Hochschule für Musik und Theater Hamburg
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- Original Performance RNN implementation by Google Magenta
-- Hochschule für Musik und Theater Hamburg for supporting this educational project
-- All contributors and students from the "Artificial Models for Music Creativity" class
-
-## Contact
-
-For questions, issues, or contributions, please:
-- Open an issue on [GitHub](https://github.com/anatrini/performance_rnn_torch/issues)
-- Contact: alessandro.anatrini@hfmt-hamburg.de
+For issues or contributions: [GitHub Issues](https://github.com/anatrini/performance_rnn_torch/issues)
 
 ---
 
