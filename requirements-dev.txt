@@ -1,0 +1,44 @@
+# Development dependencies for Performance RNN
+#
+# RECOMMENDED INSTALLATION:
+# Please use the conda development environment file:
+#   conda env create -f environment-dev.yml
+#
+# This requirements-dev.txt file is provided for pip-only installations.
+# Note: You must install PyTorch and core dependencies first.
+#
+# For pip installation:
+#   1. Install PyTorch: https://pytorch.org/get-started/locally/
+#   2. Install core dependencies: pip install -r requirements.txt
+#   3. Install dev dependencies: pip install -r requirements-dev.txt
+
+# Testing
+pytest>=7.0.0
+pytest-cov>=3.0.0
+pytest-xdist>=2.5.0
+
+# Code formatting
+black>=22.0.0
+isort>=5.10.0
+
+# Linting
+flake8>=4.0.0
+flake8-docstrings>=1.6.0
+flake8-bugbear>=22.0.0
+
+# Type checking
+mypy>=0.950
+types-tqdm
+
+# Git hooks
+pre-commit>=2.17.0
+
+# Documentation
+sphinx>=4.5.0
+sphinx-rtd-theme>=1.0.0
+sphinx-autodoc-typehints>=1.18.0
+
+# Jupyter notebooks (for experimentation)
+jupyter>=1.0.0
+ipykernel>=6.0.0
+matplotlib>=3.5.0

@@ -1,12 +1,82 @@
-.vscode
-*.pyc
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 .DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Build artifacts (created during pip install)
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.mypy_cache/
+.dmypy.json
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+*.ipynb
+
+# Data and Model files
 *.mid
 *.MID
+*.midi
+*.MIDI
 *.sess
 *.data
 *.log
-dataset/midi/*
-dataset/preprocessed/*
+
+# Data directories (content ignored, structure kept)
+data/midi/*
+!data/midi/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/maestro-v3.0.0/*
+!data/maestro-v3.0.0/.gitkeep
+
+# Output directories
+output/*
+!output/.gitkeep
+
+# Model checkpoints
+models/*
+!models/.gitkeep
+
+# Logs and TensorBoard runs
+logs/*
+!logs/.gitkeep
 runs/*
-save/*
+!runs/.gitkeep
+
+# Documentation
+docs/_build/
+docs/_static/
+docs/_templates/
+
+# OS
+Thumbs.db
+.directory
