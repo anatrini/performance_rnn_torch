@@ -48,9 +48,10 @@ def test_transposition(name, offset):
     from performance_rnn_torch.utils import helpers
     events = REF[f"{name}/events"][:, None]
     controls = REF[f"{name}/recovered_controls"][:, None]
-    e, c = helpers.transposition(events, controls, offset)
+    e, _ = helpers.transposition(events, controls, offset)
     np.testing.assert_array_equal(e[:, 0], REF[f"{name}/transposed{offset:+d}/events"])
-    np.testing.assert_allclose(c[:, 0], REF[f"{name}/transposed{offset:+d}/controls"])
+    # Transposed controls changed on purpose (phase 3, bug 1): the baseline rotated the
+    # note density instead of the pitch histogram. tests/test_bugfixes.py checks them.
 
 
 def _model():

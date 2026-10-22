@@ -29,7 +29,7 @@ A modern PyTorch implementation of Google's [Performance RNN](https://magenta.te
 
 This repository contains a PyTorch implementation of Performance RNN, inspired by the work of Ian Simon and Sageev Oore on "Performance RNN: Generating Music with Expressive Timing and Dynamics" ([Magenta Blog, 2017](https://magenta.tensorflow.org/performance-rnn)).
 
-This implementation was developed as part of the educational activities for the "Artificial Models for Music Creativity" class at Hochschule für Musik und Theater Hamburg (Winter Semester 2023/2024). For more resources, see the [class repository](https://github.com/anatrini/Artificial-Models-Music-Creativity).
+This implementation was developed as part of the educational activities for the "Artificial Models for Music Creativity" class at Hochschule für Musik und Theater Hamburg (Winter Semester 2023/2024). For more resources, see the [course repository](https://github.com/anatrini/AMMC-HfMT).
 
 ## Features
 

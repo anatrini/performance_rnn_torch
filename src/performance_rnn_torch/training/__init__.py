@@ -6,6 +6,8 @@ from performance_rnn_torch.training.trainer import (
     load_dataset,
     save_model,
     loss_update,
+    evaluate,
+    last_session_path,
     train_model,
 )
 
@@ -15,5 +17,7 @@ __all__ = [
     'load_dataset',
     'save_model',
     'loss_update',
+    'evaluate',
+    'last_session_path',
     'train_model',
 ]

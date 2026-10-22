@@ -52,8 +52,16 @@ class _LazyModelConfig(dict):
 
     def _ensure_initialized(self):
         if not self._initialized:
-            self.update(get_model_config())
             self._initialized = True
+            super().update(get_model_config())
+
+    def update(self, *args, **kwargs):
+        self._ensure_initialized()
+        super().update(*args, **kwargs)
+
+    def __setitem__(self, key, value):
+        self._ensure_initialized()
+        super().__setitem__(key, value)
 
     def __getitem__(self, key):
         self._ensure_initialized()
@@ -113,7 +121,7 @@ train = {
 generate = {
     'batch_size': 8,  # Number of sequences to generate in parallel
     'max_len': 1000,  # Maximum length of generated sequences
-    'greedy_ratio': 1.0,  # Ratio for greedy sampling (vs. probabilistic)
+    'greedy_ratio': 0.0,  # Share of steps that take the most likely event (0 = always sample)
     'beam_size': 0,  # Beam size for beam search (0 = disabled)
     'temperature': 1.0,  # Temperature for probabilistic sampling
     'stochastic_beam_search': False,  # Whether to use stochastic beam search

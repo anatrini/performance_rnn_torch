@@ -10,76 +10,66 @@ from performance_rnn_torch.utils import helpers
 from performance_rnn_torch.core.sequence import ControlSeq
 
 
-
 class Dataset:
     def __init__(self, root, verbose=False):
         assert os.path.isdir(root), root
         paths = helpers.find_files_by_extensions(root, ['.data'])
-        self.root = root
-        self.samples = []
-        self.seqlens = []
         if verbose:
             paths = tqdm(list(paths), desc=root)
+        samples = []
         for path in paths:
             # pickled numpy arrays written by `prnn preprocess`
             eventseq, controlseq = torch.load(path, weights_only=False)
             controlseq = ControlSeq.recover_compressed_array(controlseq)
             assert len(eventseq) == len(controlseq)
-            self.samples.append((eventseq, controlseq))
-            self.seqlens.append(len(eventseq))
-        self.avglen = np.mean(self.seqlens)
+            samples.append((eventseq, controlseq))
+        self._set(root, samples)
 
+    @classmethod
+    def from_samples(cls, samples, root=''):
+        """A dataset made of (events, controls) pairs already in memory."""
+        dataset = cls.__new__(cls)
+        dataset._set(root, samples)
+        return dataset
 
-    def train_test_split(self, test_size=config.train['train_test_ratio']):
-        # Check test length
-        num_test = int(test_size * len(self.samples))
+    def _set(self, root, samples):
+        self.root = root
+        self.samples = list(samples)
+        self.seqlens = [len(events) for events, _ in self.samples]
+        self.avglen = float(np.mean(self.seqlens)) if self.seqlens else 0.0
 
-        # Split data
-        train_data = Dataset(self.root)
-        train_data.samples = self.samples[:-num_test]
-        train_data.seqlens = self.seqlens[:-num_test]
+    def train_test_split(self, test_size=config.train['train_test_ratio'], seed=0):
+        """Split by file, in random order: at least one file on each side."""
+        n = len(self.samples)
+        if n < 2:
+            raise ValueError(f'{n} file(s) in the dataset: at least two are needed, '
+                             'one for training and one for validation')
+        num_test = min(max(1, round(test_size * n)), n - 1)
+        order = np.random.default_rng(seed).permutation(n)
+        test = [self.samples[i] for i in order[:num_test]]
+        train = [self.samples[i] for i in order[num_test:]]
+        return Dataset.from_samples(train, self.root), Dataset.from_samples(test, self.root)
 
-        test_data = Dataset(self.root)
-        test_data.samples = self.samples[-num_test:]
-        test_data.seqlens = self.seqlens[-num_test:]
+    def _windows(self, window_size, stride_size):
+        return [(i, start)
+                for i, seqlen in enumerate(self.seqlens)
+                for start in range(0, seqlen - window_size + 1, stride_size)]
 
-        return train_data, test_data
+    def batches(self, batch_size, window_size, stride_size, shuffle=True):
+        """Batches of windows, [window_size, batch_size] events and controls.
 
- 
-    def batches(self, batch_size, window_size, stride_size):
-        indeces = [(i, range(j, j + window_size))
-                   for i, seqlen in enumerate(self.seqlens) 
-                   for j in range(0, seqlen - window_size, stride_size)]
-        eventseq_batch = []
-        controlseq_batch = []
-        n = 0
-        for ii in np.random.permutation(len(indeces)):
-            i, r = indeces[ii]
-            eventseq, controlseq = self.samples[i]
-            eventseq = eventseq[r.start:r.stop]
-            controlseq = controlseq[r.start:r.stop]
-            eventseq_batch.append(eventseq)
-            controlseq_batch.append(controlseq)
-            n += 1
-            if n == batch_size:
-                if n == batch_size or ii == len(indeces) -1:
-                    if n < batch_size:
-                        # Padding if batch size is not as multiple of available batches number
-                        padding = batch_size - n
-                        eventseq_batch.extend([np.zeros_like(eventseq)] * padding)
-                        controlseq_batch.extend([np.zeros_like(controlseq)] * padding)
-                yield (np.stack(eventseq_batch, axis=1),
-                       np.stack(controlseq_batch, axis=1))
-                eventseq_batch.clear()
-                controlseq_batch.clear()
-                n = 0
-    
+        The last windows that do not fill a whole batch are left out.
+        """
+        windows = self._windows(window_size, stride_size)
+        order = np.random.permutation(len(windows)) if shuffle else np.arange(len(windows))
+        for first in range(0, len(windows) - batch_size + 1, batch_size):
+            chosen = [windows[k] for k in order[first:first + batch_size]]
+            yield (np.stack([self.samples[i][0][s:s + window_size] for i, s in chosen], axis=1),
+                   np.stack([self.samples[i][1][s:s + window_size] for i, s in chosen], axis=1))
 
     def get_length(self, batch_size, window_size, stride_size):
-        total_windows = sum((seqlen - window_size) // stride_size + 1 for seqlen in self.seqlens)
-        num_batches = total_windows // batch_size
-        return num_batches
-
+        """Number of batches that batches() yields."""
+        return len(self._windows(window_size, stride_size)) // batch_size
 
     def __repr__(self):
         return (f'Dataset(root="{self.root}", '

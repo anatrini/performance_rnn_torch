@@ -1,6 +1,9 @@
 """Training functions for Performance RNN."""
 
+import math
 import time
+from pathlib import Path
+
 import numpy as np
 import torch
 from torch import nn, optim
@@ -114,16 +117,22 @@ def save_model(model, model_config, optimizer, sess_path):
     logger.info('Done saving')
 
 
+def last_session_path(sess_path):
+    """Where the most recent state is saved: next to the best one, with '-last'."""
+    sess_path = Path(sess_path)
+    return sess_path.with_name(f'{sess_path.stem}-last{sess_path.suffix}')
+
+
 def loss_update(init, window_size, events, event_dim, controls, model, loss_function, teacher_forcing_ratio):
     """
-    Compute loss for a single training batch.
+    Compute the loss of one batch: cross entropy of every predicted event.
 
     Args:
         init: Initial hidden state
         window_size: Sequence window size
-        events: Event indices tensor
+        events: Event indices tensor [window_size, batch_size]
         event_dim: Event vocabulary dimension
-        controls: Control sequence tensor
+        controls: Control sequence tensor, or None
         model: PerformanceRNN model
         loss_function: Loss criterion (e.g., CrossEntropyLoss)
         teacher_forcing_ratio: Probability of using teacher forcing
@@ -140,14 +149,31 @@ def loss_update(init, window_size, events, event_dim, controls, model, loss_func
     )
 
     assert outputs.shape[:2] == events.shape[:2]
+    # Every event counts: there is no padding in the batches.
+    return loss_function(outputs.reshape(-1, event_dim), events.reshape(-1))
 
-    # Create padding mask
-    mask = (events.view(-1) != 0).float()
-    # Apply mask to loss calculation and normalize loss
-    loss = loss_function(outputs.view(-1, event_dim), events.view(-1)) * mask
-    loss = loss.sum() / mask.sum()
 
-    return loss
+def evaluate(model, data, batch_size, window_size, stride_size, event_dim, loss_function, device, seed=0):
+    """
+    Mean loss on held-out data: no dropout, no gradients, true previous events
+    as input, the same initial states at every call.
+
+    Returns:
+        float: Mean validation loss (inf when the data give no complete batch)
+    """
+    was_training = model.training
+    model.eval()
+    generator = torch.Generator().manual_seed(seed)
+    losses = []
+    with torch.no_grad():
+        for events, controls in data.batches(batch_size, window_size, stride_size, shuffle=False):
+            events = torch.as_tensor(events, dtype=torch.long, device=device)
+            controls = torch.as_tensor(controls, dtype=torch.float32, device=device)
+            init = torch.randn(events.shape[1], model.init_dim, generator=generator).to(device)
+            loss = loss_update(init, window_size, events, event_dim, controls, model, loss_function, 1.0)
+            losses.append(loss.item())
+    model.train(was_training)
+    return float(np.mean(losses)) if losses else math.inf
 
 
 def train_model(model, optimizer, dataset, batch_size, num_epochs, window_size, stride_size,
@@ -156,6 +182,10 @@ def train_model(model, optimizer, dataset, batch_size, num_epochs, window_size, 
                 device, model_config, sess_path):
     """
     Train the PerformanceRNN model.
+
+    The model with the lowest validation loss is saved to sess_path; the most
+    recent state is saved next to it with '-last' (every saving_interval
+    seconds, at the end, and on ctrl-C).
 
     Args:
         model: PerformanceRNN model
@@ -175,41 +205,43 @@ def train_model(model, optimizer, dataset, batch_size, num_epochs, window_size, 
         use_transposition: Whether to use transposition augmentation
         device: PyTorch device
         model_config: Model configuration dictionary
-        sess_path: Path to save checkpoints
+        sess_path: Path of the best checkpoint
 
     Returns:
-        float: Average validation loss
+        float: Lowest validation loss (inf if no validation batch was available)
     """
+    writer = None
     if enable_logging:
         try:
             from torch.utils.tensorboard import SummaryWriter
+            writer = SummaryWriter()
         except ImportError:
             logger.warning('TensorBoard is not installed (uv sync --extra tensorboard): logging disabled')
-            enable_logging = False
-    if enable_logging:
-        writer = SummaryWriter()
 
-    if early_stopping_patience > 0:
-        early_stopping = EarlyStopping(patience=early_stopping_patience, verbose=True)
-    else:
-        early_stopping = None
+    early_stopping = EarlyStopping(patience=early_stopping_patience, verbose=True) \
+        if early_stopping_patience > 0 else None
 
     train_data, test_data = dataset.train_test_split(test_size=train_test_ratio)
+    logger.info(f'Training on {len(train_data.samples)} files, validating on {len(test_data.samples)}')
+    if test_data.get_length(batch_size, window_size, stride_size) == 0:
+        logger.warning('The validation files are too short for one batch: '
+                       'no validation loss, the best model cannot be chosen')
 
-    avg_val_loss = None
+    Path(sess_path).parent.mkdir(parents=True, exist_ok=True)
+    last_path = last_session_path(sess_path)
+    best_val_loss = math.inf
+    step = 0
     last_saving_time = time.time()
     loss_function = nn.CrossEntropyLoss()
+    model.train()
 
     try:
         for epoch in range(num_epochs):
-            # Create a progress bar for this epoch
             batch_gen = train_data.batches(batch_size, window_size, stride_size)
             num_batches = train_data.get_length(batch_size, window_size, stride_size)
+            pbar = tqdm(batch_gen, total=num_batches, desc=f'Epoch {epoch + 1}')
 
-            # Create a progress bar
-            pbar = tqdm(batch_gen, total=num_batches, desc=f'Progressing Epoch {epoch + 1}')
-
-            for iteration, (events, controls) in enumerate(pbar):
+            for events, controls in pbar:
                 if use_transposition:
                     offset = np.random.choice(np.arange(-6, 6))
                     events, controls = helpers.transposition(events, controls, offset)
@@ -225,56 +257,50 @@ def train_model(model, optimizer, dataset, batch_size, num_epochs, window_size, 
 
                 init = torch.randn(batch_size, model.init_dim, device=device)
 
-                train_loss = loss_update(init, window_size, events, event_dim, controls, model, loss_function, teacher_forcing_ratio)
-                model.zero_grad()
+                train_loss = loss_update(init, window_size, events, event_dim, controls, model,
+                                         loss_function, teacher_forcing_ratio)
+                optimizer.zero_grad()
                 train_loss.backward()
-
-                norm = helpers.compute_gradient_norm(model.parameters())
-                nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-
+                norm = nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 optimizer.step()
 
-                # Update the tqdm bar with the current loss
                 pbar.set_postfix({'loss': train_loss.item()}, refresh=True)
-
-                if enable_logging:
-                    # Check loss on train data on iteration-basis
-                    writer.add_scalar('model/train_loss', train_loss.item(), iteration)
-                    # Check gradient normalization to spot exploding or vanishing gradients
-                    writer.add_scalar('model/norm', norm.item(), iteration)
+                if writer is not None:
+                    writer.add_scalar('model/train_loss', train_loss.item(), step)
+                    # gradient norm before clipping, to spot exploding or vanishing gradients
+                    writer.add_scalar('model/norm', norm.item(), step)
+                step += 1
 
                 if time.time() - last_saving_time > saving_interval:
-                    save_model(model, model_config, optimizer, sess_path)
+                    save_model(model, model_config, optimizer, last_path)
                     last_saving_time = time.time()
 
             pbar.close()
 
-            val_losses = []
-            for test_events, test_controls in test_data.batches(batch_size, window_size, stride_size):
-                test_events = torch.as_tensor(test_events, dtype=torch.long, device=device)
-                test_controls = torch.as_tensor(test_controls, dtype=torch.float32, device=device)
+            val_loss = evaluate(model, test_data, batch_size, window_size, stride_size,
+                                event_dim, loss_function, device)
+            logger.info(f'Epoch {epoch + 1}: validation loss {val_loss:.4f}')
+            if writer is not None:
+                writer.add_scalar('model/val_loss', val_loss, epoch)
 
-                # Compute validation loss
-                val_loss = loss_update(init, window_size, test_events, event_dim, test_controls, model, loss_function, teacher_forcing_ratio)
-                val_losses.append(val_loss.item())
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                save_model(model, model_config, optimizer, sess_path)
 
-            avg_val_loss = np.mean(val_losses)
-            if enable_logging:
-                # Check validation loss on epoch-basis
-                writer.add_scalar('model/val_loss', avg_val_loss, epoch)
-
-            # Check if early stopping has been called
             if early_stopping is not None:
-                early_stopping(avg_val_loss, model)
+                early_stopping(val_loss, model)
                 if early_stopping.early_stop:
                     logger.info('Early stopping!')
-                    save_model(model, model_config, optimizer, sess_path)
                     break
 
     except KeyboardInterrupt:
-        save_model(model, model_config, optimizer, sess_path)
+        logger.info('Training interrupted')
     finally:
-        if enable_logging:
+        save_model(model, model_config, optimizer, last_path)
+        if writer is not None:
             writer.close()
 
-        return avg_val_loss
+    if best_val_loss == math.inf:
+        # no validation was possible: keep the last state as the result
+        save_model(model, model_config, optimizer, sess_path)
+    return best_val_loss

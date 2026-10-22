@@ -6,10 +6,17 @@ PerformanceRNN model. It systematically searches for the best combination
 of model and training hyperparameters.
 """
 
+import json
+import math
+from pathlib import Path
+
+from torch import optim
+
 from performance_rnn_torch import config
+from performance_rnn_torch.core import PerformanceRNN
 from performance_rnn_torch.utils.logger import setup_logger
 from performance_rnn_torch.utils import paths
-from performance_rnn_torch.training import load_session, load_dataset, train_model
+from performance_rnn_torch.training import load_dataset, last_session_path, train_model
 
 logger = setup_logger('Hyperparameters optimization routine')
 
@@ -26,12 +33,13 @@ Examples:
   # With TensorBoard logging for each trial
   prnn optimize --n-trials 50 --enable-logging
 
-This script will test different combinations of:
+This command tests different combinations of:
   - Model architecture (hidden_dim, gru_layers, dropout)
   - Training parameters (batch_size, learning_rate, window_size)
   - Control parameters (control_ratio, teacher_forcing_ratio)
 
-The best parameters are saved and can be used for training.
+Each trial trains a new model; only the best trial's checkpoint is kept,
+with its hyperparameters in best-params.json next to it.
 """
 
 
@@ -54,12 +62,6 @@ def add_arguments(parser):
                       default=20,
                       help='Number of optimization trials (default: 20, use 100+ for thorough search)')
 
-    parser.add_argument('-R', '--reset-optimizer',
-                      dest='reset_optimizer',
-                      action='store_true',
-                      default=False,
-                      help='Reset optimizer state (use when starting fresh)')
-
     parser.add_argument('-L', '--enable-logging',
                       dest='enable_logging',
                       action='store_true',
@@ -68,55 +70,63 @@ def add_arguments(parser):
 
 
 
-def objective(trial, 
-              sess_path, 
-              model_config, 
-              train_config, 
-              device,
-              dataset, 
-              reset_optimizer, 
-              enable_logging
-              ):
-    
-    # Set model hyperparameters values to be tested using the trial object
+def trial_session_path(sess_path, number):
+    """Checkpoint of one trial: models/optimization/trial-<n>.sess for models/optimization.sess."""
+    sess_path = Path(sess_path)
+    return sess_path.with_suffix('') / f'trial-{number}{sess_path.suffix}'
+
+
+def objective(trial, sess_path, model_config, train_config, device, dataset, enable_logging):
+    """Train a fresh model with the trial's hyperparameters; return its validation loss.
+
+    Only the checkpoints of the best trial so far are kept.
+    """
+    # Model hyperparameters
     init_dim = trial.suggest_categorical('init_dim', [32, 64])
     hidden_dim = trial.suggest_categorical('hidden_dim', [256, 512, 1024])
     gru_layers = trial.suggest_int('gru_layers', 2, 5)
-    gru_dropout = trial.suggest_float('gru_dropout', 1e-3, 1.0)
+    gru_dropout = trial.suggest_float('gru_dropout', 0.0, 0.5)
 
-    # Set training hyperparameters values to be tested using the trial object
-    batch_size = trial.suggest_categorical('batch_size', [16, 32, 64, 128, 256])
-    num_epochs = trial.suggest_categorical('num_epochs', [5, 10, 25, 50, 100, 150])
-    window_size = trial.suggest_categorical('window_size', [10, 20, 50, 100, 200])
-    stride_size = trial.suggest_categorical('stride_size', [1, 2, 5, 10, 20])
+    # Training hyperparameters
+    batch_size = trial.suggest_categorical('batch_size', [16, 32, 64, 128])
+    num_epochs = trial.suggest_categorical('num_epochs', [5, 10, 25, 50])
+    window_size = trial.suggest_categorical('window_size', [50, 100, 200])
+    stride_size = trial.suggest_categorical('stride_size', [5, 10, 20, 50])
     learning_rate = trial.suggest_float('learning_rate', 1e-5, 1e-2, log=True)
-    control_ratio = trial.suggest_float('control_ratio', 1e-1, 1.0)
-    teacher_forcing_ratio = trial.suggest_float('teacher_forcing_ratio', 1e-1, 1)
+    control_ratio = trial.suggest_float('control_ratio', 0.1, 1.0)
+    teacher_forcing_ratio = trial.suggest_float('teacher_forcing_ratio', 0.1, 1.0)
 
-    # Create a copy of model to test the hyperparameters
-    trial_model_config = model_config.copy()
-    trial_model_config['init_dim'] = init_dim
-    trial_model_config['hidden_dim'] = hidden_dim
-    trial_model_config['gru_layers'] = gru_layers
-    trial_model_config['gru_dropout'] = gru_dropout
-    # Unchanged model's hyperparameters
-    event_dim = trial_model_config['event_dim']
+    trial_model_config = dict(model_config)
+    trial_model_config.update(init_dim=init_dim, hidden_dim=hidden_dim,
+                              gru_layers=gru_layers, gru_dropout=gru_dropout)
 
-    # Create a copy of train to test the hyperparameters
-    trial_train_config = train_config.copy()
-    trial_train_config['learning_rate'] = learning_rate
-    # Unchanged training's hyperparameters
-    train_test_ratio = trial_train_config['train_test_ratio']
-    early_stopping_patience = trial_train_config['early_stopping_patience']
-    saving_interval = trial_train_config['saving_interval']
-    use_transposition = trial_train_config['use_transposition']
+    model = PerformanceRNN(**trial_model_config).to(device)
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    trial_path = trial_session_path(sess_path, getattr(trial, 'number', 0))
 
-    model, optimizer = load_session(sess_path, trial_model_config, device, learning_rate, reset_optimizer, strict_config=True)
+    val_loss = train_model(model, optimizer, dataset, batch_size, num_epochs, window_size, stride_size,
+                           train_config['train_test_ratio'], train_config['early_stopping_patience'],
+                           trial_model_config['event_dim'], control_ratio, teacher_forcing_ratio,
+                           enable_logging, train_config['saving_interval'],
+                           train_config['use_transposition'], device, trial_model_config, trial_path)
 
-    validation_accuracy = train_model(model, optimizer, dataset, batch_size, num_epochs, window_size, stride_size, train_test_ratio, early_stopping_patience, event_dim, control_ratio, teacher_forcing_ratio, enable_logging, saving_interval, use_transposition, device, trial_model_config, sess_path)
-    
-    return 1.0 - validation_accuracy
+    study = getattr(trial, 'study', None)
+    if study is not None:
+        best = study.user_attrs.get('best_loss', math.inf)
+        if val_loss < best:
+            old = study.user_attrs.get('best_path')
+            study.set_user_attr('best_loss', val_loss)
+            study.set_user_attr('best_path', str(trial_path))
+            if old:
+                _remove_session(old)
+        else:
+            _remove_session(trial_path)
+    return val_loss
 
+
+def _remove_session(path):
+    for p in (Path(path), last_session_path(path)):
+        p.unlink(missing_ok=True)
 
 
 def main(args):
@@ -128,50 +138,38 @@ def main(args):
     sess_path = args.sess_path
     data_path = args.data_path
     n_trials = args.n_trials
-    reset_optimizer = args.reset_optimizer
     enable_logging = args.enable_logging
 
-    model_config = config.model
+    model_config = dict(config.model)
     train_config = config.train
     device = config.device
 
-    logger.info('='*70)
-    logger.info('HYPERPARAMETER OPTIMIZATION')
-    logger.info('='*70)
     logger.info(f'Dataset: {data_path}')
-    logger.info(f'Session: {sess_path}')
-    logger.info(f'Number of trials: {n_trials}')
+    logger.info(f'Trials: {n_trials}, checkpoints in {Path(sess_path).with_suffix("")}')
     logger.info(f'Device: {device}')
-    logger.info('='*70)
 
-    logger.info('Loading dataset...')
     dataset = load_dataset(data_path)
     logger.info(f'Dataset loaded: {dataset}')
 
-    logger.info(f'\nStarting optimization with {n_trials} trials...')
-    logger.info('This may take a long time depending on your dataset size and number of trials.')
-
     study = optuna.create_study(direction='minimize')
     study.optimize(
-        lambda trial: objective(trial, sess_path, model_config, train_config, device, dataset, reset_optimizer, enable_logging),
+        lambda trial: objective(trial, sess_path, model_config, train_config, device, dataset, enable_logging),
         n_trials=n_trials
     )
 
-    logger.info('\n' + '='*70)
-    logger.info('OPTIMIZATION COMPLETE')
-    logger.info('='*70)
+    if 'best_path' not in study.user_attrs:
+        logger.error('No trial produced a validation loss: the validation files are too short '
+                     'for one batch. Use more data or a smaller window.')
+        return 1
+    best_path = Path(study.user_attrs['best_path'])
+    params_path = best_path.with_name('best-params.json')
+    params_path.write_text(json.dumps({'validation_loss': study.best_value,
+                                       'trial': study.best_trial.number,
+                                       'params': study.best_params}, indent=2))
 
-    best_params = study.best_params
-    best_value = study.best_value
-
-    logger.info(f'\nBest validation loss: {best_value:.4f}')
-    logger.info(f'Best validation accuracy: {1.0 - best_value:.4f}')
-    logger.info('\nBest hyperparameters:')
-    for param, value in best_params.items():
+    logger.info(f'Best validation loss: {study.best_value:.4f} (trial {study.best_trial.number})')
+    for param, value in study.best_params.items():
         logger.info(f'  {param:25} = {value}')
-
-    logger.info(f'\nOptimization results saved to: {sess_path}')
-    logger.info('\nTo use these hyperparameters for training, load the session file:')
-    logger.info(f'  prnn train --session {sess_path}')
-    logger.info('='*70)
-
+    logger.info(f'Hyperparameters written to {params_path}')
+    logger.info(f'Best model: {best_path}. To train it further:')
+    logger.info(f'  prnn train --session {best_path}')

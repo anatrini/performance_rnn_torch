@@ -1,5 +1,7 @@
 """`prnn train`: train a Performance RNN model."""
 
+import argparse
+
 import numpy as np
 import time
 import torch
@@ -124,11 +126,11 @@ def add_arguments(parser):
                       default=False,
                       help='Reset the optimizer to its initial state before training')
                       
-    parser.add_argument('-L', '--enable-logging',
+    parser.add_argument('--logging',
                       dest='enable_logging',
-                      action='store_true',
+                      action=argparse.BooleanOptionalAction,
                       default=True,
-                      help='Enable logging of training progress for metrics visualization')
+                      help='TensorBoard logging of the training progress (--no-logging to turn it off)')
 
 
 
@@ -183,6 +185,6 @@ def main(args):
     dataset = load_dataset(data_path)
     logger.info(dataset)
 
-    validation_accuracy = train_model(model, optimizer, dataset, batch_size, num_epochs, window_size, stride_size, train_test_ratio, early_stopping_patience, event_dim, control_ratio, teacher_forcing_ratio, enable_logging, saving_interval, use_transposition, device, model_config, sess_path)
-    logger.info(f'Validation accuracy: {validation_accuracy}')
+    best_val_loss = train_model(model, optimizer, dataset, batch_size, num_epochs, window_size, stride_size, train_test_ratio, early_stopping_patience, event_dim, control_ratio, teacher_forcing_ratio, enable_logging, saving_interval, use_transposition, device, model_config, sess_path)
+    logger.info(f'Best validation loss: {best_val_loss:.4f}, model saved to {sess_path}')
 

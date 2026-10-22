@@ -112,18 +112,21 @@ class NoteSeq:
             note.end += offset
 
     def trim_overlapped_notes(self, min_interval=0):
+        """Merge notes of the same pitch that start within min_interval of each
+        other; otherwise end a note where the next one of the same pitch starts."""
         last_notes = {}
-        for i, note in enumerate(self.notes):
-            if note.pitch in last_notes:
-                last_note = last_notes[note.pitch]
-                if note.start - last_note.start <= min_interval:
-                    last_note.end = max(note.end, last_note.end)
-                    last_note.velocity = max(note.velocity, last_note.velocity)
-                    del self.notes[i]
-                elif note.start < last_note.end:
-                    last_note.end = note.start
-            else:
-                last_notes[note.pitch] = note
+        kept = []
+        for note in self.notes:
+            last_note = last_notes.get(note.pitch)
+            if last_note is not None and note.start - last_note.start <= min_interval:
+                last_note.end = max(note.end, last_note.end)
+                last_note.velocity = max(note.velocity, last_note.velocity)
+                continue
+            if last_note is not None and note.start < last_note.end:
+                last_note.end = note.start
+            last_notes[note.pitch] = note
+            kept.append(note)
+        self.notes = kept
 
 
 # ==================================================================================
@@ -381,8 +384,9 @@ class ControlSeq:
 
     @staticmethod
     def feat_dims():
+        # Same order as Control.to_array and recover_compressed_array
         note_density_dim = len(ControlSeq.note_density_bins)
-        return collections.OrderedDict([('pitch_histogram', 12), ('note_density', note_density_dim)])
+        return collections.OrderedDict([('note_density', note_density_dim), ('pitch_histogram', 12)])
 
     @staticmethod
     def feat_ranges():
