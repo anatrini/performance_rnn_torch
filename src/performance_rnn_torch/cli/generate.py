@@ -1,12 +1,10 @@
-#!/usr/bin/env python3
 """
-MIDI Generation Script
+`prnn generate`: write MIDI files with a trained model.
 
-This script generates MIDI sequences using a trained PerformanceRNN model.
+This command generates MIDI sequences using a trained PerformanceRNN model.
 It supports both standard generation and beam search generation with
 configurable control parameters.
 """
-import argparse
 import glob
 import numpy as np
 import os
@@ -23,6 +21,9 @@ from performance_rnn_torch.utils import helpers, paths
 
 
 logger = setup_logger('Generator logger')
+
+HELP = 'Generate MIDI files with a trained model'
+EPILOG = None
 
 
 # ========================================================================
@@ -90,9 +91,7 @@ def extract_model_name(sess_path):
 # Settings
 # ========================================================================
 
-def get_arguments():
-    parser = argparse.ArgumentParser()
-
+def add_arguments(parser):
     parser.add_argument('-c', '--control',
                       dest='control',
                       type=str,
@@ -158,8 +157,6 @@ def get_arguments():
                       default=config.generate['init_zero'],
                       help='Initialize the hidden state to zero')
 
-    return parser.parse_args()
-
 
 # ========================================================================
 # Generating
@@ -205,10 +202,7 @@ def generate(model,
 # Main
 #========================================================================
 
-def main(args=None):
-    if args is None:
-        args = get_arguments()
-
+def main(args):
     sess_path = args.sess_path
     output_dir = args.output_dir
     batch_size = args.batch_size
@@ -295,7 +289,3 @@ def main(args=None):
 
     generate(model, init, max_len, controls, greedy_ratio, temperature, output_dir, model_name, use_beam_search, beam_size, stochastic_beam_search)
 
-
-
-if __name__ == '__main__':
-    main()

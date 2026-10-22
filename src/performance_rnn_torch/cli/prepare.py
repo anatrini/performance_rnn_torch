@@ -1,29 +1,28 @@
-#!/usr/bin/env python3
 """
-Prepare MIDI data for training by extracting from Maestro dataset.
+`prnn prepare`: copy the MIDI files of one composer out of the MAESTRO dataset.
 
-This script automatically:
+This command:
 1. Finds the Maestro dataset
 2. Lists available composers
 3. Extracts MIDI files for the selected composer
 4. Saves them to data/midi/{composer_name}/ automatically
 """
 
-import argparse
-import os
+import csv
 import shutil
-import sys
 from pathlib import Path
 from typing import List, Optional
 
-import pandas as pd
-
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
 from performance_rnn_torch.utils import paths
 from performance_rnn_torch.utils.logger import setup_logger
 
 logger = setup_logger('prepare_data', file=False)
+
+
+def read_maestro_csv(maestro_dir: Path) -> List[dict]:
+    """Rows of maestro-v3.0.0.csv, one dict per recording."""
+    with open(maestro_dir / "maestro-v3.0.0.csv", newline='', encoding='utf-8') as f:
+        return list(csv.DictReader(f))
 
 
 def find_maestro_dataset() -> Optional[Path]:
@@ -63,24 +62,20 @@ def get_available_composers(maestro_dir: Path) -> List[str]:
     Returns:
         Sorted list of composer names
     """
-    csv_file = maestro_dir / "maestro-v3.0.0.csv"
-    df = pd.read_csv(csv_file)
-    composers = sorted(df['canonical_composer'].unique())
-    return composers
+    return sorted({row['canonical_composer'] for row in read_maestro_csv(maestro_dir)})
 
 
 def list_composers(maestro_dir: Path):
     """Print available composers in Maestro dataset."""
-    composers = get_available_composers(maestro_dir)
+    rows = read_maestro_csv(maestro_dir)
+    composers = sorted({row['canonical_composer'] for row in rows})
 
     logger.info("\n" + "="*70)
     logger.info(f"Available composers in Maestro dataset ({len(composers)} total):")
     logger.info("="*70)
 
     for i, composer in enumerate(composers, 1):
-        csv_file = maestro_dir / "maestro-v3.0.0.csv"
-        df = pd.read_csv(csv_file)
-        count = len(df[df['canonical_composer'] == composer])
+        count = sum(row['canonical_composer'] == composer for row in rows)
         logger.info(f"{i:2d}. {composer:30s} ({count:3d} pieces)")
 
     logger.info("="*70 + "\n")
@@ -102,8 +97,7 @@ def extract_composer_midis(
     Returns:
         Number of files copied
     """
-    csv_file = maestro_dir / "maestro-v3.0.0.csv"
-    df = pd.read_csv(csv_file)
+    rows = read_maestro_csv(maestro_dir)
 
     # Check if composer exists
     available_composers = get_available_composers(maestro_dir)
@@ -120,7 +114,7 @@ def extract_composer_midis(
         return 0
 
     # Get MIDI files for this composer
-    composer_files = df[df['canonical_composer'] == composer]['midi_filename'].tolist()
+    composer_files = [row['midi_filename'] for row in rows if row['canonical_composer'] == composer]
 
     if not composer_files:
         logger.error(f"No MIDI files found for composer: {composer}")
@@ -169,26 +163,24 @@ def extract_composer_midis(
     return copied_count
 
 
-def get_arguments():
-    parser = argparse.ArgumentParser(
-        description="Extract MIDI files from Maestro dataset for training",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
+HELP = 'Copy the MIDI files of one composer from the MAESTRO dataset'
+EPILOG = """
 Examples:
   # List all available composers
-  python scripts/prepare_data.py --list
+  prnn prepare --list
 
   # Extract all pieces by Claude Debussy
-  python scripts/prepare_data.py --composer "Claude Debussy"
+  prnn prepare --composer "Claude Debussy"
 
   # Extract to custom directory
-  python scripts/prepare_data.py --composer "Franz Schubert" --output custom_dir/
+  prnn prepare --composer "Franz Schubert" --output custom_dir/
 
   # Specify maestro location
-  python scripts/prepare_data.py --composer "Bach" --maestro-dir /path/to/maestro
-        """
-    )
+  prnn prepare --composer "Johann Sebastian Bach" --maestro-dir /path/to/maestro-v3.0.0
+"""
 
+
+def add_arguments(parser):
     parser.add_argument(
         '-c', '--composer',
         type=str,
@@ -216,13 +208,8 @@ Examples:
         help='Path to maestro-v3.0.0 directory (auto-detected if not specified)'
     )
 
-    return parser.parse_args()
 
-
-def main(args=None):
-    if args is None:
-        args = get_arguments()
-
+def main(args):
     # Find Maestro dataset
     if args.maestro_dir:
         maestro_dir = Path(args.maestro_dir)
@@ -259,10 +246,10 @@ def main(args=None):
             logger.info("Next steps:")
             logger.info("="*70)
             logger.info("1. Preprocess the MIDI files:")
-            logger.info("   python scripts/preprocess.py")
+            logger.info("   prnn preprocess")
             logger.info("")
             logger.info("2. Train the model:")
-            logger.info("   python scripts/train.py")
+            logger.info("   prnn train")
             logger.info("="*70 + "\n")
 
         return 0 if count > 0 else 1
@@ -272,6 +259,3 @@ def main(args=None):
     logger.info("Run with --help for more information.")
     return 1
 
-
-if __name__ == '__main__':
-    sys.exit(main())

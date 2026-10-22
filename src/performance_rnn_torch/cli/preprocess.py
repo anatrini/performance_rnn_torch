@@ -1,12 +1,10 @@
-#!/usr/bin/env python3
 """
-MIDI Preprocessing Script
+`prnn preprocess`: MIDI files to training data.
 
-This script preprocesses MIDI files into a format suitable for training
+This command preprocesses MIDI files into a format suitable for training
 the PerformanceRNN model. It converts MIDI files into sequences of events
 and control sequences.
 """
-import argparse
 import hashlib
 import os
 import torch
@@ -24,25 +22,21 @@ logger = setup_logger('Preprocess logger')
 # Settings
 #========================================================================
 
-def get_arguments():
-    parser = argparse.ArgumentParser(
-        description='Preprocess MIDI files into training data',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
+HELP = 'Preprocess MIDI files into training data'
+EPILOG = """
 Examples:
   # Use defaults (reads from data/midi/, saves to data/processed/)
-  python scripts/preprocess.py
+  prnn preprocess
 
   # Use all available CPU cores
-  python scripts/preprocess.py --num_workers -1
-
-  # Use 4 workers
-  python scripts/preprocess.py --num_workers 4
+  prnn preprocess --num_workers -1
 
   # Custom paths
-  python scripts/preprocess.py --midi_root custom/midi/ --save_dir custom/processed/
-        """
-    )
+  prnn preprocess --midi_root custom/midi/ --save_dir custom/processed/
+"""
+
+
+def add_arguments(parser):
 
     parser.add_argument('-m', '--midi_root',
                       dest='midi_root',
@@ -62,7 +56,6 @@ Examples:
                       type=int,
                       help='Number of worker processes (default: 1, use -1 for all CPU cores)')
 
-    return parser.parse_args()
 
 def preprocess_midi(path):
     note_seq = NoteSeq.from_midi_file(path)
@@ -120,10 +113,7 @@ def preprocess_midi_files_under(midi_root, save_dir, num_workers):
 
     logger.info('Done')
 
-def main(args=None):
-    if args is None:
-        args = get_arguments()
-
+def main(args):
     midi_root = args.midi_root
     save_dir = args.save_dir
     num_workers = args.num_workers
@@ -142,7 +132,3 @@ def main(args=None):
 
     preprocess_midi_files_under(midi_root, save_dir, num_workers)
 
-
-
-if __name__ == '__main__':
-    main()

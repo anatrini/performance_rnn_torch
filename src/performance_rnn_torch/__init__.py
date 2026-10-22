@@ -25,7 +25,9 @@ Example usage:
     >>> # Generate music (see scripts/generate.py for full example)
 """
 
-__version__ = '1.0.0'
+from importlib.metadata import version as _version
+
+__version__ = _version('performance-rnn-torch')
 __author__ = 'Alessandro Anatrini'
 __license__ = 'MIT'
 

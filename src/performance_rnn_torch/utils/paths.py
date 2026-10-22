@@ -12,14 +12,16 @@ from typing import Optional
 
 def get_project_root() -> Path:
     """
-    Get the root directory of the project.
+    Get the working folder of the project: data/, models/, output/, logs/ and
+    runs/ are created there.
+
+    It is the current directory, or PERFORMANCE_RNN_HOME if set.
 
     Returns:
-        Path: Absolute path to the project root directory.
+        Path: Absolute path to the project folder.
     """
-    # This file is in performance_rnn_torch/utils/paths.py
-    # So we go up two levels to get to the project root
-    return Path(__file__).parent.parent.parent.resolve()
+    home = os.getenv('PERFORMANCE_RNN_HOME')
+    return Path(home).resolve() if home else Path.cwd().resolve()
 
 
 def get_package_root() -> Path:

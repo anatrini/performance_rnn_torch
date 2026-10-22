@@ -1,36 +1,30 @@
-#!/usr/bin/env python3
 """
-Hyperparameter Optimization Script
+`prnn optimize`: search hyperparameters with Optuna.
 
-This script uses Optuna to perform hyperparameter optimization for the
+This command uses Optuna to perform hyperparameter optimization for the
 PerformanceRNN model. It systematically searches for the best combination
 of model and training hyperparameters.
 """
-import argparse
-import optuna
 
 from performance_rnn_torch import config
 from performance_rnn_torch.utils.logger import setup_logger
 from performance_rnn_torch.utils import paths
 from performance_rnn_torch.training import load_session, load_dataset, train_model
 
-logger = setup_logger('Hyperparameters optimization routine', file=True)
+logger = setup_logger('Hyperparameters optimization routine')
 
 
-def get_arguments():
-    parser = argparse.ArgumentParser(
-        description='Find optimal hyperparameters using Optuna',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
+HELP = 'Search hyperparameters with Optuna (needs the "optimize" extra)'
+EPILOG = """
 Examples:
   # Quick optimization (10 trials)
-  python scripts/optimization_routine.py --n-trials 10
+  prnn optimize --n-trials 10
 
   # Thorough optimization (100 trials, recommended)
-  python scripts/optimization_routine.py --n-trials 100
+  prnn optimize --n-trials 100
 
   # With TensorBoard logging for each trial
-  python scripts/optimization_routine.py --n-trials 50 --enable-logging
+  prnn optimize --n-trials 50 --enable-logging
 
 This script will test different combinations of:
   - Model architecture (hidden_dim, gru_layers, dropout)
@@ -38,9 +32,10 @@ This script will test different combinations of:
   - Control parameters (control_ratio, teacher_forcing_ratio)
 
 The best parameters are saved and can be used for training.
-        """
-    )
+"""
 
+
+def add_arguments(parser):
     parser.add_argument('-S', '--session',
                       dest='sess_path',
                       type=str,
@@ -70,8 +65,6 @@ The best parameters are saved and can be used for training.
                       action='store_true',
                       default=False,
                       help='Enable TensorBoard logging for each trial (creates many log files)')
-
-    return parser.parse_args()
 
 
 
@@ -126,9 +119,11 @@ def objective(trial,
 
 
 
-def main(args=None):
-    if args is None:
-        args = get_arguments()
+def main(args):
+    import optuna
+
+    global logger
+    logger = setup_logger('Hyperparameters optimization routine', file=True)
 
     sess_path = args.sess_path
     data_path = args.data_path
@@ -177,10 +172,6 @@ def main(args=None):
 
     logger.info(f'\nOptimization results saved to: {sess_path}')
     logger.info('\nTo use these hyperparameters for training, load the session file:')
-    logger.info(f'  python scripts/train.py --session {sess_path}')
+    logger.info(f'  prnn train --session {sess_path}')
     logger.info('='*70)
 
-
-
-if __name__ == '__main__':
-    main()

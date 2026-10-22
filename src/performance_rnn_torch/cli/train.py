@@ -1,7 +1,5 @@
-#!/usr/bin/env python3
-"""Training script for Performance RNN."""
+"""`prnn train`: train a Performance RNN model."""
 
-import argparse
 import numpy as np
 import time
 import torch
@@ -23,7 +21,10 @@ from performance_rnn_torch.utils.logger import setup_logger
 from performance_rnn_torch.utils import helpers, paths
 
 
-logger = setup_logger('training', file=True)
+logger = setup_logger('training')
+
+HELP = 'Train a model on preprocessed data'
+EPILOG = None
 
 
 
@@ -32,9 +33,7 @@ logger = setup_logger('training', file=True)
 #========================================================================
 
 
-def get_arguments():
-    parser = argparse.ArgumentParser()
-
+def add_arguments(parser):
     parser.add_argument('-S', '--session',
                       dest='sess_path',
                       type=str,
@@ -131,13 +130,11 @@ def get_arguments():
                       default=True,
                       help='Enable logging of training progress for metrics visualization')
 
-    return parser.parse_args()
 
 
-
-def main(args=None):
-    if args is None:
-        args = get_arguments()
+def main(args):
+    global logger
+    logger = setup_logger('training', file=True)
 
     sess_path = args.sess_path
     data_path = args.data_path
@@ -189,7 +186,3 @@ def main(args=None):
     validation_accuracy = train_model(model, optimizer, dataset, batch_size, num_epochs, window_size, stride_size, train_test_ratio, early_stopping_patience, event_dim, control_ratio, teacher_forcing_ratio, enable_logging, saving_interval, use_transposition, device, model_config, sess_path)
     logger.info(f'Validation accuracy: {validation_accuracy}')
 
-
-
-if __name__ == '__main__':
-    main()
