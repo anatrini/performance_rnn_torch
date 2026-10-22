@@ -12,7 +12,6 @@ import numpy as np
 import pytest
 import torch
 
-import performance_rnn_torch.core.model as model_module
 from performance_rnn_torch.core.model import PerformanceRNN
 from performance_rnn_torch.core.sequence import ControlSeq, EventSeq
 
@@ -22,11 +21,6 @@ from make_reference import encode, logits, notes_array
 HERE = Path(__file__).parent
 REF = np.load(HERE / "reference.npz")
 CPU = torch.device("cpu")
-
-
-@pytest.fixture(autouse=True)
-def cpu_device(monkeypatch):
-    monkeypatch.setattr(model_module, "device", CPU)
 
 
 @pytest.mark.parametrize("name", PIECES)

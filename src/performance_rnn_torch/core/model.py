@@ -6,7 +6,6 @@ from torch.distributions import Categorical, Gumbel
 
 import numpy as np
 from tqdm import tqdm
-from performance_rnn_torch.config import device
 
 
 class PerformanceRNN(nn.Module):
@@ -42,10 +41,10 @@ class PerformanceRNN(nn.Module):
     def _initialize_weights(self):
         nn.init.xavier_normal_(self.event_embedding.weight)
         nn.init.xavier_normal_(self.inithid_fc.weight)
-        self.inithid_fc.bias.data.fill_(0.)
+        nn.init.zeros_(self.inithid_fc.bias)
         nn.init.xavier_normal_(self.concat_input_fc.weight)
         nn.init.xavier_normal_(self.output_fc.weight)
-        self.output_fc.bias.data.fill_(0.)
+        nn.init.zeros_(self.output_fc.bias)
 
     def _sample_event(self, output, greedy=True, temperature=1.0):
         if greedy:
@@ -63,11 +62,12 @@ class PerformanceRNN(nn.Module):
         batch_size = event.shape[1]
         event = self.event_embedding(event)
 
+        device = event.device
         if control is None:
-            default = torch.ones(1, batch_size, 1).to(device)
-            control = torch.zeros(1, batch_size, self.control_dim).to(device)
+            default = torch.ones(1, batch_size, 1, device=device)
+            control = torch.zeros(1, batch_size, self.control_dim, device=device)
         else:
-            default = torch.zeros(1, batch_size, 1).to(device)
+            default = torch.zeros(1, batch_size, 1, device=device)
             assert control.shape == (1, batch_size, self.control_dim)
 
         concat = torch.cat([event, default, control], -1)
@@ -81,7 +81,8 @@ class PerformanceRNN(nn.Module):
         return output, hidden
     
     def get_primary_event(self, batch_size):
-        return torch.LongTensor([[self.primary_event] * batch_size]).to(device)
+        device = self.inithid_fc.weight.device
+        return torch.full((1, batch_size), self.primary_event, dtype=torch.long, device=device)
     
     def init_to_hidden(self, init):
         # [batch_size, init_dim]
@@ -158,6 +159,7 @@ class PerformanceRNN(nn.Module):
         
         batch_size = init.shape[0]
         current_beam_size = 1
+        device = init.device
         
         if controls is not None:
             controls = self.expand_controls(controls, steps) # [steps, batch_size, control_dim]
@@ -176,13 +178,12 @@ class PerformanceRNN(nn.Module):
         beam_events = event[0, :, None, :].repeat(1, current_beam_size, 1)
 
         # [batch, beam] log probs sum of beams
-        beam_log_prob = torch.zeros(batch_size, current_beam_size).to(device)
+        beam_log_prob = torch.zeros(batch_size, current_beam_size, device=device)
         
         if stochastic:
             # [batch, beam] Gumbel perturbed log probs of beams
-            beam_log_prob_perturbed = torch.zeros(batch_size, current_beam_size).to(device)
-            beam_z = torch.full((batch_size, beam_size), float('inf'))
-            gumbel_dist = Gumbel(0, 1)
+            beam_log_prob_perturbed = torch.zeros(batch_size, current_beam_size, device=device)
+            gumbel_dist = Gumbel(torch.tensor(0., device=device), torch.tensor(1., device=device))
 
         step_iter = range(steps)
         if verbose:
@@ -225,14 +226,14 @@ class PerformanceRNN(nn.Module):
             
             beam_log_prob = torch.gather(beam_log_prob_expand_batch, -1, top_indices)[0] # [batch, beam]
             
-            beam_index_old = torch.arange(current_beam_size)[None, None, :, None] # [1, 1, cbeam, 1]
+            beam_index_old = torch.arange(current_beam_size, device=device)[None, None, :, None] # [1, 1, cbeam, 1]
             beam_index_old = beam_index_old.repeat(1, batch_size, 1, self.output_dim) # [1, batch, cbeam, out]
             beam_index_old = beam_index_old.view(1, batch_size, -1) # [1, batch, cbeam*out]
             beam_index_new = torch.gather(beam_index_old, -1, top_indices)
 
             hidden = torch.gather(hidden, 2, beam_index_new[:, :, :, None].repeat(self.gru_layers, 1, 1, self.hidden_dim))
             
-            event_index = torch.arange(self.output_dim)[None, None, None, :] # [1, 1, 1, out]
+            event_index = torch.arange(self.output_dim, device=device)[None, None, None, :] # [1, 1, 1, out]
             event_index = event_index.repeat(1, batch_size, current_beam_size, 1) # [1, batch, cbeam, out]
             event_index = event_index.view(1, batch_size, -1) # [1, batch, cbeam*out]
             event = torch.gather(event_index, -1, top_indices) # [1, batch, cbeam*out]
@@ -242,6 +243,6 @@ class PerformanceRNN(nn.Module):
             
             current_beam_size = beam_size
 
-        best = beam_events[torch.arange(batch_size).long(), beam_log_prob.argmax(-1)]
+        best = beam_events[torch.arange(batch_size, device=device), beam_log_prob.argmax(-1)]
         best = best.contiguous().t()
         return best

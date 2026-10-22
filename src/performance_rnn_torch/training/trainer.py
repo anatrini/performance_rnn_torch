@@ -34,7 +34,7 @@ def load_session(sess_path, model_config, device, learning_rate, reset_optimizer
     optimizer_state = None
 
     try:
-        sess = torch.load(sess_path, map_location=device, weights_only=False)
+        sess = torch.load(sess_path, map_location=device, weights_only=True)
 
         # Check if model configuration matches
         if 'model_config' in sess:
@@ -107,7 +107,7 @@ def save_model(model, model_config, optimizer, sess_path):
     """
     logger.info(f'Saving to {sess_path}')
     torch.save({
-        'model_config': model_config,
+        'model_config': dict(model_config),  # a plain dict loads with weights_only=True
         'model_state': model.state_dict(),
         'model_optimizer_state': optimizer.state_dict()
     }, sess_path)
@@ -181,7 +181,12 @@ def train_model(model, optimizer, dataset, batch_size, num_epochs, window_size, 
         float: Average validation loss
     """
     if enable_logging:
-        from torch.utils.tensorboard import SummaryWriter
+        try:
+            from torch.utils.tensorboard import SummaryWriter
+        except ImportError:
+            logger.warning('TensorBoard is not installed (uv sync --extra tensorboard): logging disabled')
+            enable_logging = False
+    if enable_logging:
         writer = SummaryWriter()
 
     if early_stopping_patience > 0:
@@ -209,16 +214,16 @@ def train_model(model, optimizer, dataset, batch_size, num_epochs, window_size, 
                     offset = np.random.choice(np.arange(-6, 6))
                     events, controls = helpers.transposition(events, controls, offset)
 
-                events = torch.LongTensor(events).to(device)
+                events = torch.as_tensor(events, dtype=torch.long, device=device)
                 assert events.shape[0] == window_size
 
                 if np.random.random() < control_ratio:
-                    controls = torch.FloatTensor(controls).to(device)
+                    controls = torch.as_tensor(controls, dtype=torch.float32, device=device)
                     assert controls.shape[0] == window_size
                 else:
                     controls = None
 
-                init = torch.randn(batch_size, model.init_dim).to(device)
+                init = torch.randn(batch_size, model.init_dim, device=device)
 
                 train_loss = loss_update(init, window_size, events, event_dim, controls, model, loss_function, teacher_forcing_ratio)
                 model.zero_grad()
@@ -246,8 +251,8 @@ def train_model(model, optimizer, dataset, batch_size, num_epochs, window_size, 
 
             val_losses = []
             for test_events, test_controls in test_data.batches(batch_size, window_size, stride_size):
-                test_events = torch.LongTensor(test_events).to(device)
-                test_controls = torch.FloatTensor(test_controls).to(device)
+                test_events = torch.as_tensor(test_events, dtype=torch.long, device=device)
+                test_controls = torch.as_tensor(test_controls, dtype=torch.float32, device=device)
 
                 # Compute validation loss
                 val_loss = loss_update(init, window_size, test_events, event_dim, test_controls, model, loss_function, teacher_forcing_ratio)

@@ -51,7 +51,8 @@ def logits(model, events, controls, init):
 
 
 def main():
-    model_module.device = CPU          # the old model reads a global device chosen at import
+    if hasattr(model_module, "device"):  # the old model read a global device chosen at import
+        model_module.device = CPU
     ref = {}
 
     for name, make in PIECES.items():

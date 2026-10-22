@@ -197,7 +197,7 @@ def compute_gradient_norm(parameters, norm_type: float = 2.0) -> float:
     total_norm = 0.0
     for p in parameters:
         if p.grad is not None:
-            param_norm = p.grad.data.norm(norm_type)
+            param_norm = p.grad.detach().norm(norm_type)
             total_norm += param_norm ** norm_type
     total_norm = total_norm ** (1.0 / norm_type)
     return total_norm

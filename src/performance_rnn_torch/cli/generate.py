@@ -13,7 +13,6 @@ import torch
 from pathlib import Path
 
 from performance_rnn_torch import config
-from performance_rnn_torch.config import device, model as model_config
 from performance_rnn_torch.utils.logger import setup_logger
 from performance_rnn_torch.core import PerformanceRNN
 from performance_rnn_torch.core.sequence import Control, ControlSeq
@@ -243,7 +242,8 @@ def main(args):
                 files = list(helpers.find_files_by_extensions(control))
                 assert len(files) > 0, f'no file in "{control}"'
                 control = np.random.choice(files)
-            _, compressed_controls = torch.load(control)
+            # preprocessed files are pickled numpy arrays, written by `prnn preprocess`
+            _, compressed_controls = torch.load(control, weights_only=False)
             controls = ControlSeq.recover_compressed_array(compressed_controls)
             if max_len == 0:
                 max_len = controls.shape[0]
@@ -277,15 +277,15 @@ def main(args):
     model_name = extract_model_name(sess_path)
     logger.info(f'Model name: {model_name}')
 
-    state = torch.load(sess_path, map_location=device)
+    state = torch.load(sess_path, map_location=device, weights_only=True)
     model = PerformanceRNN(**state['model_config']).to(device)
     model.load_state_dict(state['model_state'])
     model.eval()
     logger.info(model)
     if init_zero:
-        init = torch.zeros(batch_size, model.init_dim).to(device)
+        init = torch.zeros(batch_size, model.init_dim, device=device)
     else:
-        init = torch.randn(batch_size, model.init_dim).to(device)
+        init = torch.randn(batch_size, model.init_dim, device=device)
 
     generate(model, init, max_len, controls, greedy_ratio, temperature, output_dir, model_name, use_beam_search, beam_size, stochastic_beam_search)
 
