@@ -2,366 +2,204 @@
 
 ![score](./imgs/score.png)
 
-A modern PyTorch implementation of Google's [Performance RNN](https://magenta.tensorflow.org/performance-rnn) for generating expressive piano performances with dynamics and timing.
+[![tests](https://github.com/anatrini/performance_rnn_torch/actions/workflows/tests.yml/badge.svg?branch=dev)](https://github.com/anatrini/performance_rnn_torch/actions/workflows/tests.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![PyTorch 2.0+](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c.svg)](https://pytorch.org/)
+A recurrent neural network that plays the piano: it learns from MIDI recordings of pianists and generates new performances note by note, with their timing and dynamics. It follows Magenta's [Performance RNN](https://magenta.tensorflow.org/performance-rnn) (Simon & Oore, 2017): the same event vocabulary, controls and model settings, in PyTorch.
 
-## Table of Contents
+The generation can be steered with two controls: how many notes per second, and which pitch classes are used.
 
-- [Overview](#overview)
-- [Features](#features)
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Project Structure](#project-structure)
-- [Usage](#usage)
-  - [Data Preparation](#data-preparation)
-  - [Preprocessing](#preprocessing)
-  - [Hyperparameter Optimization](#hyperparameter-optimization-recommended)
-  - [Training](#training)
-  - [Generation](#generation)
-- [Configuration](#configuration)
-- [Development](#development)
-- [Citation](#citation)
+Developed for the course [Artificial Models for Multimodal Creativity](https://github.com/anatrini/AMMC-HfMT) at the Hochschule für Musik und Theater Hamburg.
 
-## Overview
+## Contents
 
-This repository contains a PyTorch implementation of Performance RNN, inspired by the work of Ian Simon and Sageev Oore on "Performance RNN: Generating Music with Expressive Timing and Dynamics" ([Magenta Blog, 2017](https://magenta.tensorflow.org/performance-rnn)).
-
-This implementation was developed as part of the educational activities for the "Artificial Models for Music Creativity" class at Hochschule für Musik und Theater Hamburg (Winter Semester 2023/2024). For more resources, see the [course repository](https://github.com/anatrini/AMMC-HfMT).
-
-## Features
-
-- ✨ **Modern PyTorch 2.0+** implementation with full GPU support
-- 🎹 **Expressive generation** with dynamics and timing control
-- 🎯 **Flexible training** with configurable batch sizes, early stopping, and checkpointing
-- 📊 **TensorBoard integration** for training visualization
-- 🔧 **Hyperparameter optimization** using Optuna
-- 🏃 **Easy-to-use CLI** scripts for all operations
-- 📦 **Proper Python packaging** with pip installability
-- 🌍 **Cross-platform** support (Linux, macOS, Windows)
-- 🍎 **Apple Silicon** support with MPS acceleration
+1. [Installation](#installation)
+2. [Quick start](#quick-start)
+3. [Commands](#commands)
+4. [How a performance is represented](#how-a-performance-is-represented)
+5. [The model and its settings](#the-model-and-its-settings)
+6. [Generating](#generating)
+7. [Using it from Python](#using-it-from-python)
+8. [Development](#development)
+9. [Credits and license](#credits-and-license)
 
 ## Installation
 
-### Requirements
-
-- Python 3.10 or higher
-- Miniconda or Anaconda ([download here](https://docs.conda.io/en/latest/miniconda.html))
-
-### Quick Install
+You need [uv](https://docs.astral.sh/uv/getting-started/installation/). uv installs the right Python (3.12 or later) and all dependencies in a folder `.venv` inside the project; nothing else on the computer changes.
 
 ```bash
-# 1. Clone the repository
 git clone https://github.com/anatrini/performance_rnn_torch.git
 cd performance_rnn_torch
-
-# 2. Create conda environment based on your hardware:
-#    Choose ONE of the following:
-
-# For CPU-only systems:
-conda env create -f environment-cpu.yml
-
-# For NVIDIA GPU with CUDA:
-conda env create -f environment-cuda.yml
-
-# For Apple Silicon (M1/M2/M3) with MPS:
-conda env create -f environment-mps.yml
-
-# 3. Activate the environment
-conda activate py_magenta
-
-# 4. Install the package
-pip install -e .
+uv sync --all-extras
 ```
 
-That's it! You're ready to use Performance RNN.
+`--all-extras` adds TensorBoard (training curves) and Optuna (hyperparameter search); `uv sync` alone installs only what is needed to train and generate.
 
-### Development Installation
-
-If you want to contribute to the project:
+Check the installation:
 
 ```bash
-# Clone the repository
-git clone https://github.com/anatrini/performance_rnn_torch.git
-cd performance_rnn_torch
-
-# Create development environment (includes testing, linting, documentation tools)
-conda env create -f environment-dev.yml
-conda activate py_magenta
-
-# Install the package in development mode
-pip install -e ".[dev]"
+uv run prnn --help
 ```
 
-**Note:** For GPU development, use `environment-cuda.yml` or `environment-mps.yml` instead:
-```bash
-conda env create -f environment-cuda.yml  # or environment-mps.yml
-conda activate py_magenta
-pip install -e ".[dev]"
-```
+**Hardware.** Training uses an NVIDIA GPU (CUDA) or Apple Silicon (MPS) when available, otherwise the CPU; generation runs well on any of them.
 
-### Verifying Installation
+- macOS and Linux: nothing else to do. On Linux, the PyTorch packages from PyPI already include CUDA.
+- Windows with an NVIDIA GPU: the default PyTorch package for Windows has no CUDA. After `uv sync`, replace it with the one that matches your driver, and run the commands with `--no-sync` so that uv does not put the other one back:
+
+  ```bash
+  uv pip install --reinstall torch --torch-backend=auto
+  uv run --no-sync prnn train
+  ```
+
+## Quick start
+
+From MIDI files to new performances, in the project folder:
 
 ```bash
-# The installation test will show the version and detected device
-python -c "import performance_rnn_torch as prnn; print(f'Version: {prnn.__version__}'); print(f'Device: {prnn.config.device}')"
+# 1. MIDI files: MAESTRO (see below) or your own, in data/midi/<name>/
+uv run prnn prepare --composer "Johann Sebastian Bach"
+
+# 2. Convert them to training data (data/processed/)
+uv run prnn preprocess
+
+# 3. Train (models/train.sess)
+uv run prnn train
+
+# 4. Generate 8 performances (output/train_001.mid ...)
+uv run prnn generate
 ```
 
-Expected output:
-```
-Version: 1.0.0
-Device: cpu  # or 'cuda:0' for NVIDIA GPU, or 'mps' for Apple Silicon
-```
+**MAESTRO.** [MAESTRO v3.0.0](https://magenta.tensorflow.org/datasets/maestro) contains about 200 hours of performances recorded at the International Piano-e-Competition. Download the MIDI files ([maestro-v3.0.0-midi.zip](https://storage.googleapis.com/magentadata/datasets/maestro/v3.0.0/maestro-v3.0.0-midi.zip), 58 MB) and unzip them into `data/`, so that `data/maestro-v3.0.0/maestro-v3.0.0.csv` exists. `uv run prnn prepare --list` shows the composers.
 
-## Quick Start
+**Your own MIDI files.** Put them in `data/midi/`, one folder per collection, e.g. `data/midi/my_pieces/`. Any instrument except drums is read; piano music works best.
 
-Complete workflow from dataset to music generation:
+**Working folders.** `prnn` creates `data/`, `models/`, `output/`, `logs/` and `runs/` in the current folder, or in the folder given by the environment variable `PERFORMANCE_RNN_HOME`.
+
+## Commands
+
+| Command | What it does | Main options |
+|---|---|---|
+| `prnn prepare` | copies the MIDI files of one composer from MAESTRO to `data/midi/<composer>/` | `--list`, `--composer`, `--maestro-dir`, `--output` |
+| `prnn preprocess` | MIDI files to training data (`.npz`), keeping the folder structure | `-m` MIDI folder, `-s` output folder, `-w` worker processes |
+| `prnn train` | trains a model, or continues one | `-S` checkpoint, `-d` data, `-M` model settings, `-e` epochs, `-b` batch size, `-T` transposition |
+| `prnn generate` | writes MIDI files with a trained model | `-s` checkpoint, `-l` length, `-T` temperature, `-c` controls, `-k`/`-p` top-k/top-p, `-B` beam search |
+| `prnn optimize` | searches hyperparameters with Optuna | `-n` trials |
+
+`uv run prnn <command> --help` lists every option with its default and examples. Every command that uses the model also accepts `--device` (`auto`, `cpu`, `mps`, `cuda`) and `--seed`.
+
+## How a performance is represented
+
+A performance is a sequence of events, from a vocabulary of 388, as in Magenta:
+
+| Event | Number | Meaning |
+|---|---|---|
+| note-on | 128 | a key is pressed (MIDI pitch 0–127) |
+| note-off | 128 | a key is released |
+| time shift | 100 | time moves forward by 10 ms to 1 s |
+| velocity | 32 | loudness of the following notes, in 32 steps |
+
+Times are rounded to 10 ms. When a MIDI file is read, the sustain pedal (controller 64) is applied to the notes: a note held by the pedal lasts until the pedal is released or the same key is played again.
+
+Each event also has a **control vector** that describes the music that follows it:
+
+- **note density**: notes per second in the next 3 seconds, in 8 classes:
+
+  | class | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+  |---|---|---|---|---|---|---|---|---|
+  | notes per second | < 1 | 1–2 | 2–4 | 4–8 | 8–16 | 16–32 | 32–64 | ≥ 64 |
+
+- **pitch class histogram**: how long each of the 12 pitch classes (C to B) sounds in the next 5 seconds.
+
+The model learns to continue a performance in a way that matches the controls; at generation time you choose them.
+
+## The model and its settings
+
+A stack of GRU layers reads the previous event and the controls, and gives the probability of every possible next event. During training the true previous events are the input; the loss is the cross entropy of the predicted events.
+
+The defaults are Magenta's: **3 layers of 512 units, no dropout, batches of 64**, gradient norm clipped at 3, learning rate 0.001. They suit a large dataset such as MAESTRO and a GPU.
+
+**If training is too slow** on your computer, use a smaller model and smaller batches:
 
 ```bash
-# Activate your conda environment
-conda activate py_magenta
-
-# 1. Get MIDI files from Maestro dataset (example: Claude Debussy)
-python scripts/prepare_data.py --composer "Claude Debussy"
-
-# 2. Preprocess MIDI files into training data
-python scripts/preprocess.py --num_workers -1
-
-# 3. Optimize hyperparameters (optional but recommended, ~1-2 hours)
-python scripts/optimization_routine.py --n-trials 20
-
-# 4. Train the model with optimized settings
-python scripts/train.py --session models/optimization.sess --num-epochs 50
-
-# 5. Generate new music
-python scripts/generate.py --session models/optimization.sess --num-samples 3
+uv run prnn train -M "hidden_dim=256,gru_layers=2" -b 32
 ```
 
-**Skip optimization?** Use default hyperparameters instead:
-```bash
-python scripts/train.py --num-epochs 50
-python scripts/generate.py
-```
-
-## Project Structure
-
-```
-performance_rnn_torch/              # Project root directory
-│
-├── performance_rnn_torch/          # Python package (source code)
-│   ├── core/                       # Core models and data handling
-│   │   ├── model.py               # PerformanceRNN neural network
-│   │   ├── sequence.py            # MIDI-to-event conversion
-│   │   └── data.py                # Dataset class
-│   ├── training/                   # Training utilities
-│   │   ├── trainer.py             # Training loop and helpers
-│   │   └── early_stopping.py      # Early stopping callback
-│   ├── utils/                      # Utility functions
-│   │   ├── paths.py               # Path management
-│   │   ├── logger.py              # Logging setup
-│   │   └── helpers.py             # Helper functions
-│   ├── config.py                   # Global configuration
-│   └── __init__.py                 # Package initialization
-│
-├── scripts/                        # Command-line scripts
-│   ├── prepare_data.py            # Extract MIDI from Maestro dataset
-│   ├── preprocess.py              # Convert MIDI to training data
-│   ├── train.py                   # Train the model
-│   ├── generate.py                # Generate music
-│   └── optimization_routine.py    # Hyperparameter tuning
-│
-├── data/                           # Data directory (gitignored)
-│   ├── maestro-v3.0.0/            # Maestro dataset (download separately)
-│   ├── midi/                      # Your MIDI files (organized by composer/folder)
-│   │   ├── claude_debussy/        # Example: Debussy's pieces
-│   │   ├── bach/                  # Example: Bach's pieces
-│   │   └── ...
-│   ├── processed/                 # Preprocessed training data (mirrors midi/ structure)
-│   │   ├── claude_debussy/        # Processed Debussy files
-│   │   ├── bach/                  # Processed Bach files
-│   │   └── ...
-│   └── scripts/                   # Dataset download scripts (.sh)
-│
-├── models/                         # Trained model checkpoints (gitignored)
-├── output/                         # Generated MIDI files (gitignored)
-├── logs/                           # Training logs (gitignored)
-├── runs/                           # TensorBoard logs (gitignored)
-│
-├── environment-*.yml               # Conda environment files
-├── setup.py                        # Package installation script
-├── pyproject.toml                  # Python project metadata
-├── requirements.txt                # Python dependencies (pip fallback)
-└── README.md                       # This file
-```
-
-**Key points:**
-- **`performance_rnn_torch/`** (inner) = Python package with source code
-- **`scripts/`** = Command-line tools you run
-- **`data/`** = All your data files (MIDI, preprocessed, datasets)
-  - **Folder structure is preserved**: `data/midi/composer/` → `data/processed/composer/`
-- **`models/`** = Trained models
-- **`output/`** = Generated music
-- **`.egg-info/`** = Build artifact (auto-generated, gitignored)
-
-## Usage
-
-### Data Preparation
-
-**Option A: Use Maestro Dataset (Recommended)**
-
-Download [Maestro v3.0.0](https://magenta.tensorflow.org/datasets/maestro) and extract to `data/maestro-v3.0.0/`.
+**If the model learns the training files by heart** (the validation loss rises while the training loss keeps falling, which happens with few files), add dropout or use a smaller model:
 
 ```bash
-# List available composers
-python scripts/prepare_data.py --list
-
-# Extract MIDI files for a composer (auto-saves to data/midi/{composer}/)
-python scripts/prepare_data.py --composer "Claude Debussy"
+uv run prnn train -M "gru_dropout=0.3"
 ```
 
-**Option B: Use Your Own MIDI Files**
+Other useful options of `prnn train`:
 
-Place MIDI files in `data/midi/` organized by subdirectories:
-```
-data/midi/
-├── composer_1/
-│   ├── piece1.mid
-└── composer_2/
-    └── piece2.mid
-```
+- `-T` transposes every batch by a random interval (−6 to +5 semitones): more variety from the same files.
+- `-w` events per training window (default 100), `-e` epochs (default 15), `-p` early stopping after so many epochs without improvement (default 5).
+- `-f` teacher forcing ratio: below 1, some steps receive the model's own prediction instead of the true event (scheduled sampling); slower.
 
-### Preprocessing
-
-Convert MIDI files to training data (reads from `data/midi/`, saves to `data/processed/`):
+The best model (lowest validation loss) is saved to the checkpoint, the most recent state next to it as `<name>-last.sess`. Running the same command again continues the training. Training curves, if TensorBoard is installed:
 
 ```bash
-# Use all CPU cores (recommended)
-python scripts/preprocess.py --num_workers -1
-
-# Or use specific number of workers
-python scripts/preprocess.py --num_workers 4
+uv run tensorboard --logdir runs
 ```
 
-**Key Parameters:**
-- `--midi_root`: Source directory (default: `data/midi/`)
-- `--save_dir`: Output directory (default: `data/processed/`)
-- `--num_workers`: Parallel workers (default: 1, use -1 for all cores)
+**Hyperparameter search.** `uv run prnn optimize -n 20` trains 20 models with different sizes, dropout, batch sizes, windows and learning rates, and keeps the best one in `models/optimization/` with its settings in `best-params.json`. It takes hours.
 
-### Hyperparameter Optimization (Recommended)
-
-Find optimal hyperparameters using Optuna (tests model architecture, batch size, learning rate, etc.):
+## Generating
 
 ```bash
-# Quick optimization (~1-2 hours)
-python scripts/optimization_routine.py --n-trials 20
+# 4 performances of 2000 events, a little more predictable
+uv run prnn generate -b 4 -l 2000 -T 0.9
 
-# Thorough optimization (~5-10 hours, best results)
-python scripts/optimization_routine.py --n-trials 100
+# only the pitch classes of C major, 2-4 notes per second
+uv run prnn generate -c "1,0,1,0,1,1,0,1,0,1,0,1;2"
+
+# the controls of a preprocessed piece: same density and harmony over time
+uv run prnn generate -c data/processed/johann_sebastian_bach/<piece>.npz -l 0
 ```
 
-Best parameters are saved to `models/optimization.sess` for use in training.
+- **Temperature** `-T`: below 1 the model prefers its most likely choices, above 1 it takes more risks.
+- **Top-k** `-k` and **top-p** `-p`: sample only among the most likely events, e.g. `-p 0.95`.
+- **Controls** `-c`: `"HISTOGRAM;DENSITY"`, twelve weights for C to B and a density class 0–7; `";3"` gives all pitch classes the same weight. A preprocessed file gives a control for every event.
+- **Beam search** `-B 5`: keeps the 5 most likely continuations and writes the best; more conservative.
+- `--seed 1` gives the same result every time.
 
-**Key Parameters:**
-- `-n`, `--n-trials`: Number of optimization trials (default: 20)
-- `-d`, `--dataset`: Preprocessed data path (default: `data/processed/`)
-- `-S`, `--session`: Where to save results (default: `models/optimization.sess`)
-- `-L`, `--enable-logging`: Enable TensorBoard logging for each trial
+## Using it from Python
 
-### Training
+```python
+import torch
+from performance_rnn_torch import load_model
+from performance_rnn_torch.generation import parse_control, write_midi_files
 
-Train using optimized hyperparameters:
-
-```bash
-# Use optimized settings
-python scripts/train.py --session models/optimization.sess --num-epochs 50
-
-# Or use default hyperparameters
-python scripts/train.py --num-epochs 50
-```
-
-**Monitor training:** `tensorboard --logdir runs/` (open http://localhost:6006)
-
-**Key Parameters:**
-- `--session, -S`: Model checkpoint path (default: `models/train.sess`)
-- `--dataset, -d`: Preprocessed data path (default: `data/processed/`)
-- `--batch-size, -b`: Batch size (default: 64)
-- `--num-epochs, -e`: Number of epochs (default: 24)
-- `--learning-rate, -l`: Learning rate (default: 0.001)
-- `--window-size, -w`: Sequence length (default: 200)
-
-### Generation
-
-Generate new piano pieces from your trained model:
-
-```bash
-# Use the optimized model
-python scripts/generate.py --session models/optimization.sess --num-samples 3
-
-# Use default model
-python scripts/generate.py
-```
-
-Generated MIDI files are saved to `output/`.
-
-**Key Parameters:**
-- `--session, -S`: Trained model path (default: `models/train.sess`)
-- `--output, -O`: Output directory (default: `output/`)
-- `--num-samples, -n`: Number of pieces (default: 1)
-- `--max-len, -l`: Sequence length (default: 1000)
-- `--temperature, -t`: Randomness/creativity (default: 1.0, range: 0.1-2.0)
-
-## Configuration
-
-Default settings are in `performance_rnn_torch/config.py`. Key configurations:
-
-- **Model**: `hidden_dim` (512), `gru_layers` (3), `gru_dropout` (0.3)
-- **Training**: `batch_size` (64), `num_epochs` (24), `window_size` (200), `learning_rate` (0.001)
-- **Generation**: `max_len` (1000), `temperature` (1.0)
-
-**Environment Variables** (optional path customization):
-```bash
-export PERFORMANCE_RNN_DATA_DIR=/path/to/data
-export PERFORMANCE_RNN_MODELS_DIR=/path/to/models
-export PERFORMANCE_RNN_OUTPUT_DIR=/path/to/output
+model, config, _ = load_model('models/train.sess')
+control = torch.as_tensor(parse_control(';3').to_array())[None, None]  # [1, batch, 20]
+events = model.generate(torch.randn(1, model.init_dim), 1000, controls=control, temperature=1.0)
+write_midi_files(events, 'output', 'from_python')
 ```
 
 ## Development
 
 ```bash
-# Install with development dependencies
-pip install -e ".[dev]"
-
-# Code quality
-black performance_rnn_torch/ scripts/
-flake8 performance_rnn_torch/ scripts/
-
-# Run tests
-pytest
-
-# Build docs
-cd docs/ && make html
+uv sync --all-extras          # includes pytest and ruff
+uv run pytest                 # tests
+uv run ruff check             # lint
+uv run ruff format            # formatting
 ```
 
-## Citation
+The tests run on Linux and macOS at every push (GitHub Actions). See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Credits and license
+
+- Performance RNN: Ian Simon and Sageev Oore, [Performance RNN: Generating Music with Expressive Timing and Dynamics](https://magenta.tensorflow.org/performance-rnn), Magenta blog, 2017; S. Oore, I. Simon, S. Dieleman, D. Eck, K. Simonyan, "This time with feeling: learning expressive musical performance", *Neural Computing and Applications* 32, 2020, [arXiv:1808.03715](https://arxiv.org/abs/1808.03715). The event vocabulary, the controls and the default settings follow Magenta's code ([magenta/note-seq](https://github.com/magenta/note-seq), [magenta/magenta](https://github.com/magenta/magenta)).
+- First PyTorch port: Yuankui Lee, [djosix/Performance-RNN-PyTorch](https://github.com/djosix/Performance-RNN-PyTorch) (2018), from which this repository started.
+- MAESTRO: C. Hawthorne et al., "Enabling factorized piano music modeling and generation with the MAESTRO dataset", ICLR 2019. The dataset is licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/); keep this in mind for models trained on it.
+
+Code: MIT License, see [LICENSE](LICENSE). Alessandro Anatrini, Hochschule für Musik und Theater Hamburg.
 
 ```bibtex
-@misc{anatrini2024performancernn,
+@software{anatrini_performance_rnn_torch,
   author = {Anatrini, Alessandro},
-  title = {Performance RNN in PyTorch},
-  year = {2024},
-  url = {https://github.com/anatrini/performance_rnn_torch}
+  title  = {Performance RNN in PyTorch},
+  year   = {2026},
+  url    = {https://github.com/anatrini/performance_rnn_torch}
 }
 ```
-
-Original work: [Performance RNN: Generating Music with Expressive Timing and Dynamics](https://magenta.tensorflow.org/performance-rnn) by Simon & Oore (2017)
-
-## License & Contact
-
-MIT License - [Alessandro Anatrini](mailto:alessandro.anatrini@hfmt-hamburg.de) - Hochschule für Musik und Theater Hamburg
-
-For issues or contributions: [GitHub Issues](https://github.com/anatrini/performance_rnn_torch/issues)
-
----
-

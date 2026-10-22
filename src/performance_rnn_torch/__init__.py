@@ -6,7 +6,8 @@ Expressive piano performances with timing and dynamics, after Magenta's
 Performance RNN (Simon & Oore, 2017).
 
 Example:
-    >>> from performance_rnn_torch import load_model, Control
+    >>> import torch
+    >>> from performance_rnn_torch import load_model
     >>> model, config, _ = load_model('models/train.sess')
     >>> events = model.generate(torch.randn(1, model.init_dim), 1000)
 

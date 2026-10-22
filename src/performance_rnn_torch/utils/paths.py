@@ -118,31 +118,6 @@ class ProjectPaths:
         path = self._get_path('PERFORMANCE_RNN_RUNS_DIR', self.project_root / 'runs')
         return path
 
-    @property
-    def scripts_dir(self) -> Path:
-        """Directory for dataset download scripts."""
-        return self.data_dir / 'scripts'
-
-    def ensure_directories(self, create_data_dirs: bool = True) -> None:
-        """
-        Create all necessary directories if they don't exist.
-
-        Args:
-            create_data_dirs: Whether to create data directories (midi, processed, etc.)
-                             Set to False if you want to download/prepare data separately.
-        """
-        # Always create these directories
-        self.models_dir.mkdir(parents=True, exist_ok=True)
-        self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.logs_dir.mkdir(parents=True, exist_ok=True)
-        self.runs_dir.mkdir(parents=True, exist_ok=True)
-
-        if create_data_dirs:
-            self.data_dir.mkdir(parents=True, exist_ok=True)
-            self.midi_dir.mkdir(parents=True, exist_ok=True)
-            self.processed_dir.mkdir(parents=True, exist_ok=True)
-            self.scripts_dir.mkdir(parents=True, exist_ok=True)
-
     def get_model_path(self, session_name: str) -> Path:
         """
         Get the path for a model checkpoint file.
