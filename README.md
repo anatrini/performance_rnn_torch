@@ -19,9 +19,10 @@ Developed for the course [Artificial Models for Multimodal Creativity](https://g
 4. [How a performance is represented](#how-a-performance-is-represented)
 5. [The model and its settings](#the-model-and-its-settings)
 6. [Generating](#generating)
-7. [Using it from Python](#using-it-from-python)
-8. [Development](#development)
-9. [Credits and license](#credits-and-license)
+7. [Playing in real time from Max or Pd](#playing-in-real-time-from-max-or-pd)
+8. [Using it from Python](#using-it-from-python)
+9. [Development](#development)
+10. [Credits and license](#credits-and-license)
 
 ## Installation
 
@@ -84,6 +85,7 @@ uv run prnn generate
 | `prnn train` | trains a model, or continues one | `-S` checkpoint, `-d` data, `-M` model settings, `-e` epochs, `-b` batch size, `-T` transposition |
 | `prnn generate` | writes MIDI files with a trained model | `-s` checkpoint, `-l` length, `-T` temperature, `-c` controls, `-k`/`-p` top-k/top-p, `-B` beam search |
 | `prnn optimize` | searches hyperparameters with Optuna | `-n` trials |
+| `prnn serve` | plays a model in real time, controlled over OSC from Max or Pd | `-s` checkpoint, `--port`, `--send-port`, `--lookahead` |
 
 `uv run prnn <command> --help` lists every option with its default and examples. Every command that uses the model also accepts `--device` (`auto`, `cpu`, `mps`, `cuda`) and `--seed`.
 
@@ -142,6 +144,8 @@ The best model (lowest validation loss) is saved to the checkpoint, the most rec
 uv run tensorboard --logdir runs
 ```
 
+A model trained with these defaults on the 144 Bach pieces of MAESTRO reached its best validation loss (2.43) after 3 epochs, about 25 minutes on an M1 Pro, and then began to learn the training files by heart; early stopping keeps the best epoch.
+
 **Hyperparameter search.** `uv run prnn optimize -n 20` trains 20 models with different sizes, dropout, batch sizes, windows and learning rates, and keeps the best one in `models/optimization/` with its settings in `best-params.json`. It takes hours.
 
 ## Generating
@@ -162,6 +166,33 @@ uv run prnn generate -c data/processed/johann_sebastian_bach/<piece>.npz -l 0
 - **Controls** `-c`: `"HISTOGRAM;DENSITY"`, twelve weights for C to B and a density class 0–7; `";3"` gives all pitch classes the same weight. A preprocessed file gives a control for every event.
 - **Beam search** `-B 5`: keeps the 5 most likely continuations and writes the best; more conservative.
 - `--seed 1` gives the same result every time.
+
+## Playing in real time from Max or Pd
+
+`prnn serve` loads a model and plays it: it generates a little ahead of the clock and sends every note when its time comes. Max or Pd send the controls and receive the notes over OSC.
+
+```bash
+uv run prnn serve -s models/bach.sess
+```
+
+| Received on port 9010 | |
+|---|---|
+| `/play 1` or `/play 0` | start or stop; stopping releases every sounding note |
+| `/reset` | stop and start the next performance from the beginning |
+| `/temperature <float>` | below 1 more predictable, above 1 more surprising |
+| `/density <float>` | notes per second |
+| `/histogram <12 floats>` | weights of the pitch classes C to B |
+| `/controls 1` or `/controls 0` | play with or without the controls |
+
+| Sent to port 9011 | |
+|---|---|
+| `/note_on <pitch> <velocity>` | a key is pressed |
+| `/note_off <pitch>` | a key is released |
+| `/playing 1` or `/playing 0` | the server started or stopped |
+
+Changes of the controls are heard after about half a second (`--lookahead`): the server generates that far ahead, so that it never falls behind. It runs on the CPU, which generates more than ten times faster than a performance needs.
+
+**Example patches.** [`examples/max/prnn-serve.maxpat`](examples/max/prnn-serve.maxpat) and, for Pd and plugdata, [`examples/pd/prnn-serve.pd`](examples/pd/prnn-serve.pd) start the server with the [spawn](https://github.com/anatrini/spawn) object, send the controls and play the notes: in Max through `noteout`, in Pd through `noteout` and a small built-in synthesizer. They expect the model at `models/bach.sess` in the repository; change the message in section 1 for another one. Closing the patch, or quitting Max or Pd, ends the server.
 
 ## Using it from Python
 
