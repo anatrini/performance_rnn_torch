@@ -1,0 +1,26 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+      - name: Install (Python, dependencies and extras from uv.lock)
+        run: uv sync --locked --all-extras
+      - name: Lint
+        run: |
+          uv run ruff check
+          uv run ruff format --check
+      - name: Tests
+        run: uv run pytest -q

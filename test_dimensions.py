@@ -5,7 +5,7 @@ print("Testing Event Dimensions...")
 print("=" * 70)
 
 try:
-    from performance_rnn_torch.core.sequence import EventSeq, ControlSeq
+    from performance_rnn_torch.core.sequence import ControlSeq, EventSeq
 
     # Get dimensions
     feat_dims = EventSeq.feat_dims()
@@ -16,7 +16,7 @@ try:
         print(f"  {feat_name:15} = {feat_dim:3} events")
 
     print(f"\nTotal Event Dimension: {total_dim}")
-    print(f"Expected (Magenta):     388")
+    print("Expected (Magenta):     388")
 
     if total_dim == 388:
         print("\n✓ SUCCESS: Dimensions match Magenta's original implementation!")
@@ -37,4 +37,5 @@ try:
 except Exception as e:
     print(f"\n✗ ERROR: {e}")
     import traceback
+
     traceback.print_exc()

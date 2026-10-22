@@ -18,8 +18,15 @@ class PerformanceRNN(nn.Module):
     is the input of the first step.
     """
 
-    def __init__(self, event_dim: int, control_dim: int, init_dim: int, hidden_dim: int,
-                 gru_layers: int = 3, gru_dropout: float = 0.3):
+    def __init__(
+        self,
+        event_dim: int,
+        control_dim: int,
+        init_dim: int,
+        hidden_dim: int,
+        gru_layers: int = 3,
+        gru_dropout: float = 0.3,
+    ):
         super().__init__()
 
         self.event_dim = event_dim
@@ -32,8 +39,7 @@ class PerformanceRNN(nn.Module):
         self.inithid_fc = nn.Linear(init_dim, gru_layers * hidden_dim)
         self.event_embedding = nn.Embedding(event_dim + 1, event_dim)
         self.concat_input_fc = nn.Linear(event_dim + 1 + control_dim, hidden_dim)
-        self.gru = nn.GRU(hidden_dim, hidden_dim, num_layers=gru_layers,
-                          dropout=gru_dropout if gru_layers > 1 else 0.0)
+        self.gru = nn.GRU(hidden_dim, hidden_dim, num_layers=gru_layers, dropout=gru_dropout if gru_layers > 1 else 0.0)
         self.output_fc = nn.Linear(hidden_dim, event_dim)
 
         self._initialize_weights()
@@ -72,8 +78,9 @@ class PerformanceRNN(nn.Module):
             flag = x.new_zeros(steps, batch, 1)
         return F.leaky_relu(self.concat_input_fc(torch.cat([x, flag, controls], -1)), 0.1)
 
-    def step(self, event: torch.Tensor, control: torch.Tensor | None,
-             hidden: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    def step(
+        self, event: torch.Tensor, control: torch.Tensor | None, hidden: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """One step: event [1, batch], control [1, batch, control_dim] or None."""
         out, hidden = self.gru(self._inputs(event, control), hidden)
         return self.output_fc(out), hidden
@@ -83,8 +90,13 @@ class PerformanceRNN(nn.Module):
 
     # ------------------------------------------------------------------ training
 
-    def forward(self, events: torch.Tensor, controls: torch.Tensor | None = None,
-                init: torch.Tensor | None = None, teacher_forcing_ratio: float = 1.0) -> torch.Tensor:
+    def forward(
+        self,
+        events: torch.Tensor,
+        controls: torch.Tensor | None = None,
+        init: torch.Tensor | None = None,
+        teacher_forcing_ratio: float = 1.0,
+    ) -> torch.Tensor:
         """Logits [T, batch, event_dim] that predict events[t] from the events before it.
 
         With teacher_forcing_ratio 1 the true previous events are the inputs and
@@ -93,8 +105,11 @@ class PerformanceRNN(nn.Module):
         otherwise (scheduled sampling), which needs a step-by-step loop.
         """
         steps, batch = events.shape
-        hidden = self.init_to_hidden(init) if init is not None else \
-            events.new_zeros(self.gru_layers, batch, self.hidden_dim, dtype=torch.float32)
+        hidden = (
+            self.init_to_hidden(init)
+            if init is not None
+            else events.new_zeros(self.gru_layers, batch, self.hidden_dim, dtype=torch.float32)
+        )
         if controls is not None:
             controls = self.expand_controls(controls, steps)
 
@@ -105,18 +120,17 @@ class PerformanceRNN(nn.Module):
 
         event, outputs = self._start(batch, events.device), []
         for t in range(steps):
-            control = controls[t:t + 1] if controls is not None else None
+            control = controls[t : t + 1] if controls is not None else None
             logits, hidden = self.step(event, control, hidden)
             outputs.append(logits)
             use_true = random.random() < teacher_forcing_ratio
-            event = events[t:t + 1] if use_true else logits.argmax(-1).detach()
+            event = events[t : t + 1] if use_true else logits.argmax(-1).detach()
         return torch.cat(outputs, 0)
 
     # ------------------------------------------------------------------ generation
 
     @staticmethod
-    def sample(logits: torch.Tensor, temperature: float = 1.0, top_k: int = 0,
-               top_p: float = 1.0) -> torch.Tensor:
+    def sample(logits: torch.Tensor, temperature: float = 1.0, top_k: int = 0, top_p: float = 1.0) -> torch.Tensor:
         """Draw events from logits [..., event_dim].
 
         top_k keeps the k most likely events, top_p the smallest set whose
@@ -129,16 +143,24 @@ class PerformanceRNN(nn.Module):
         if top_p < 1.0:
             sorted_logits, order = logits.sort(-1, descending=True)
             cumulative = sorted_logits.softmax(-1).cumsum(-1)
-            remove = cumulative - sorted_logits.softmax(-1) >= top_p   # keep the event that crosses p
+            remove = cumulative - sorted_logits.softmax(-1) >= top_p  # keep the event that crosses p
             sorted_logits = sorted_logits.masked_fill(remove, float('-inf'))
             logits = logits.scatter(-1, order, sorted_logits)
         probs = logits.softmax(-1)
         return torch.multinomial(probs.reshape(-1, probs.shape[-1]), 1).view(probs.shape[:-1])
 
     @torch.no_grad()
-    def generate(self, init: torch.Tensor, steps: int, controls: torch.Tensor | None = None,
-                 greedy: float = 0.0, temperature: float = 1.0, top_k: int = 0, top_p: float = 1.0,
-                 verbose: bool = False) -> torch.Tensor:
+    def generate(
+        self,
+        init: torch.Tensor,
+        steps: int,
+        controls: torch.Tensor | None = None,
+        greedy: float = 0.0,
+        temperature: float = 1.0,
+        top_k: int = 0,
+        top_p: float = 1.0,
+        verbose: bool = False,
+    ) -> torch.Tensor:
         """Generate events [steps, batch].
 
         greedy: share of steps that take the most likely event instead of sampling.
@@ -153,7 +175,7 @@ class PerformanceRNN(nn.Module):
         outputs = []
         step_iter = tqdm(range(steps), desc='Generating') if verbose else range(steps)
         for t in step_iter:
-            control = controls[t:t + 1] if controls is not None else None
+            control = controls[t : t + 1] if controls is not None else None
             logits, hidden = self.step(event, control, hidden)
             if greedy and random.random() < greedy:
                 event = logits.argmax(-1)
@@ -163,9 +185,16 @@ class PerformanceRNN(nn.Module):
         return torch.cat(outputs, 0)
 
     @torch.no_grad()
-    def beam_search(self, init: torch.Tensor, steps: int, beam_size: int,
-                    controls: torch.Tensor | None = None, temperature: float = 1.0,
-                    stochastic: bool = False, verbose: bool = False) -> torch.Tensor:
+    def beam_search(
+        self,
+        init: torch.Tensor,
+        steps: int,
+        beam_size: int,
+        controls: torch.Tensor | None = None,
+        temperature: float = 1.0,
+        stochastic: bool = False,
+        verbose: bool = False,
+    ) -> torch.Tensor:
         """The most likely sequences [steps, batch], keeping beam_size candidates.
 
         stochastic adds Gumbel noise to the scores when choosing the candidates.
@@ -180,13 +209,13 @@ class PerformanceRNN(nn.Module):
         if controls is not None:
             controls = self.expand_controls(controls, steps)  # [steps, batch_size, control_dim]
 
-        hidden = self.init_to_hidden(init)[:, :, None, :]       # [layers, batch, 1, hidden]
-        event = self._start(batch_size, device)[:, :, None]     # [1, batch, 1]
-        beam_events = event[0, :, None, :]                       # [batch, 1, 1]
+        hidden = self.init_to_hidden(init)[:, :, None, :]  # [layers, batch, 1, hidden]
+        event = self._start(batch_size, device)[:, :, None]  # [1, batch, 1]
+        beam_events = event[0, :, None, :]  # [batch, 1, 1]
         beam_log_prob = torch.zeros(batch_size, current_beam_size, device=device)
 
         if stochastic:
-            gumbel_dist = Gumbel(torch.tensor(0., device=device), torch.tensor(1., device=device))
+            gumbel_dist = Gumbel(torch.tensor(0.0, device=device), torch.tensor(1.0, device=device))
 
         step_iter = range(steps)
         if verbose:
@@ -212,11 +241,11 @@ class PerformanceRNN(nn.Module):
                 perturbed = expanded + gumbel_dist.sample(expanded.shape)
                 _, top_indices = perturbed.topk(beam_size, -1)
             else:
-                _, top_indices = expanded.topk(beam_size, -1)        # [1, batch, beam]
+                _, top_indices = expanded.topk(beam_size, -1)  # [1, batch, beam]
 
             beam_log_prob = torch.gather(expanded, -1, top_indices)[0]  # [batch, beam]
             beam_index = torch.div(top_indices, self.event_dim, rounding_mode='floor')
-            event = top_indices % self.event_dim                     # [1, batch, beam]
+            event = top_indices % self.event_dim  # [1, batch, beam]
 
             hidden = torch.gather(hidden, 2, beam_index[:, :, :, None].expand(self.gru_layers, -1, -1, self.hidden_dim))
             beam_events = torch.gather(beam_events, 1, beam_index[0, :, :, None].expand(-1, -1, beam_events.shape[-1]))
@@ -224,4 +253,4 @@ class PerformanceRNN(nn.Module):
             current_beam_size = beam_size
 
         best = beam_events[torch.arange(batch_size, device=device), beam_log_prob.argmax(-1)]
-        return best[:, 1:].t().contiguous()   # without the start event
+        return best[:, 1:].t().contiguous()  # without the start event

@@ -11,8 +11,9 @@ from performance_rnn_torch.core.model import PerformanceRNN
 from performance_rnn_torch.core.sequence import FORMAT_VERSION
 
 
-def save_checkpoint(path, model: PerformanceRNN, model_config: ModelConfig,
-                    optimizer: torch.optim.Optimizer | None = None, **info: Any) -> None:
+def save_checkpoint(
+    path, model: PerformanceRNN, model_config: ModelConfig, optimizer: torch.optim.Optimizer | None = None, **info: Any
+) -> None:
     """Write the model, its configuration, the optimizer state and any extra
     information (epoch, validation loss, training settings).
 
@@ -21,13 +22,16 @@ def save_checkpoint(path, model: PerformanceRNN, model_config: ModelConfig,
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    torch.save({
-        'format_version': FORMAT_VERSION,
-        'model_config': asdict(model_config),
-        'model_state': model.state_dict(),
-        'optimizer_state': optimizer.state_dict() if optimizer is not None else None,
-        **info,
-    }, path)
+    torch.save(
+        {
+            'format_version': FORMAT_VERSION,
+            'model_config': asdict(model_config),
+            'model_state': model.state_dict(),
+            'optimizer_state': optimizer.state_dict() if optimizer is not None else None,
+            **info,
+        },
+        path,
+    )
 
 
 def load_checkpoint(path, device: torch.device | str = 'cpu') -> dict:
@@ -35,8 +39,10 @@ def load_checkpoint(path, device: torch.device | str = 'cpu') -> dict:
     state = torch.load(path, map_location=device, weights_only=True)
     version = state.get('format_version')
     if version != FORMAT_VERSION:
-        raise ValueError(f'{path}: checkpoint format {version}, expected {FORMAT_VERSION}. '
-                         'Checkpoints of older versions cannot be used: train a new model.')
+        raise ValueError(
+            f'{path}: checkpoint format {version}, expected {FORMAT_VERSION}. '
+            'Checkpoints of older versions cannot be used: train a new model.'
+        )
     return state
 
 

@@ -60,8 +60,11 @@ def model_name(sess_path) -> str:
 
 def next_file_number(output_dir, name: str) -> int:
     """1 + the highest number of the files <name>_<number>.mid in output_dir."""
-    numbers = [int(m.group(1)) for p in Path(output_dir).glob(f'{name}_*.mid')
-               if (m := re.fullmatch(rf'{re.escape(name)}_(\d+)\.mid', p.name))]
+    numbers = [
+        int(m.group(1))
+        for p in Path(output_dir).glob(f'{name}_*.mid')
+        if (m := re.fullmatch(rf'{re.escape(name)}_(\d+)\.mid', p.name))
+    ]
     return max(numbers, default=0) + 1
 
 

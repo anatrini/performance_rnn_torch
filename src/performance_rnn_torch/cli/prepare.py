@@ -11,7 +11,6 @@ This command:
 import csv
 import shutil
 from pathlib import Path
-from typing import List, Optional
 
 from performance_rnn_torch.utils import paths
 from performance_rnn_torch.utils.logger import setup_logger
@@ -19,13 +18,13 @@ from performance_rnn_torch.utils.logger import setup_logger
 logger = setup_logger('prepare_data', file=False)
 
 
-def read_maestro_csv(maestro_dir: Path) -> List[dict]:
+def read_maestro_csv(maestro_dir: Path) -> list[dict]:
     """Rows of maestro-v3.0.0.csv, one dict per recording."""
     with open(maestro_dir / "maestro-v3.0.0.csv", newline='', encoding='utf-8') as f:
         return list(csv.DictReader(f))
 
 
-def find_maestro_dataset() -> Optional[Path]:
+def find_maestro_dataset() -> Path | None:
     """
     Find the Maestro dataset directory.
 
@@ -52,7 +51,7 @@ def find_maestro_dataset() -> Optional[Path]:
     return None
 
 
-def get_available_composers(maestro_dir: Path) -> List[str]:
+def get_available_composers(maestro_dir: Path) -> list[str]:
     """
     Get list of available composers from Maestro dataset.
 
@@ -70,22 +69,18 @@ def list_composers(maestro_dir: Path):
     rows = read_maestro_csv(maestro_dir)
     composers = sorted({row['canonical_composer'] for row in rows})
 
-    logger.info("\n" + "="*70)
+    logger.info("\n" + "=" * 70)
     logger.info(f"Available composers in Maestro dataset ({len(composers)} total):")
-    logger.info("="*70)
+    logger.info("=" * 70)
 
     for i, composer in enumerate(composers, 1):
         count = sum(row['canonical_composer'] == composer for row in rows)
         logger.info(f"{i:2d}. {composer:30s} ({count:3d} pieces)")
 
-    logger.info("="*70 + "\n")
+    logger.info("=" * 70 + "\n")
 
 
-def extract_composer_midis(
-    composer: str,
-    maestro_dir: Path,
-    output_dir: Optional[Path] = None
-) -> int:
+def extract_composer_midis(composer: str, maestro_dir: Path, output_dir: Path | None = None) -> int:
     """
     Extract MIDI files for a specific composer.
 
@@ -182,30 +177,25 @@ Examples:
 
 def add_arguments(parser):
     parser.add_argument(
-        '-c', '--composer',
+        '-c',
+        '--composer',
         type=str,
         default=None,
-        help='Composer name (must match exactly). Use --list to see available composers.'
+        help='Composer name (must match exactly). Use --list to see available composers.',
+    )
+
+    parser.add_argument('-l', '--list', action='store_true', help='List all available composers in Maestro dataset')
+
+    parser.add_argument(
+        '-o', '--output', type=str, default=None, help='Output directory (default: data/midi/{composer_name}/)'
     )
 
     parser.add_argument(
-        '-l', '--list',
-        action='store_true',
-        help='List all available composers in Maestro dataset'
-    )
-
-    parser.add_argument(
-        '-o', '--output',
+        '-m',
+        '--maestro-dir',
         type=str,
         default=None,
-        help=f'Output directory (default: data/midi/{{composer_name}}/)'
-    )
-
-    parser.add_argument(
-        '-m', '--maestro-dir',
-        type=str,
-        default=None,
-        help='Path to maestro-v3.0.0 directory (auto-detected if not specified)'
+        help='Path to maestro-v3.0.0 directory (auto-detected if not specified)',
     )
 
 
@@ -219,16 +209,16 @@ def main(args):
     else:
         maestro_dir = find_maestro_dataset()
         if maestro_dir is None:
-            logger.error("\n" + "="*70)
+            logger.error("\n" + "=" * 70)
             logger.error("Maestro dataset not found!")
-            logger.error("="*70)
+            logger.error("=" * 70)
             logger.error("\nPlease download the Maestro dataset v3.0.0:")
             logger.error("  https://magenta.tensorflow.org/datasets/maestro")
             logger.error("\nExtract it to:")
             logger.error("  data/maestro-v3.0.0/")
             logger.error("\nOr specify a custom location with:")
             logger.error("  --maestro-dir /path/to/maestro-v3.0.0")
-            logger.error("="*70 + "\n")
+            logger.error("=" * 70 + "\n")
             return 1
 
     # List composers if requested
@@ -242,15 +232,15 @@ def main(args):
         count = extract_composer_midis(args.composer, maestro_dir, output_dir)
 
         if count > 0:
-            logger.info("\n" + "="*70)
+            logger.info("\n" + "=" * 70)
             logger.info("Next steps:")
-            logger.info("="*70)
+            logger.info("=" * 70)
             logger.info("1. Preprocess the MIDI files:")
             logger.info("   prnn preprocess")
             logger.info("")
             logger.info("2. Train the model:")
             logger.info("   prnn train")
-            logger.info("="*70 + "\n")
+            logger.info("=" * 70 + "\n")
 
         return 0 if count > 0 else 1
 
@@ -258,4 +248,3 @@ def main(args):
     logger.info("No action specified. Use --list to see composers or --composer to extract.")
     logger.info("Run with --help for more information.")
     return 1
-

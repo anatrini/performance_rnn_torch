@@ -7,7 +7,6 @@ with support for environment variable overrides and automatic directory creation
 
 import os
 from pathlib import Path
-from typing import Optional
 
 
 def get_project_root() -> Path:
@@ -47,19 +46,15 @@ class ProjectPaths:
         export PERFORMANCE_RNN_DATA_DIR=/custom/data/path
     """
 
-    def __init__(self):
-        self._project_root = get_project_root()
-        self._package_root = get_package_root()
-
     @property
     def project_root(self) -> Path:
-        """Root directory of the project."""
-        return self._project_root
+        """Root directory of the project, read at every use (it follows the current directory)."""
+        return get_project_root()
 
     @property
     def package_root(self) -> Path:
         """Root directory of the performance_rnn_torch package."""
-        return self._package_root
+        return get_package_root()
 
     def _get_path(self, env_var: str, default: Path) -> Path:
         """
@@ -80,7 +75,7 @@ class ProjectPaths:
     @property
     def data_dir(self) -> Path:
         """Directory for all data files."""
-        return self._get_path('PERFORMANCE_RNN_DATA_DIR', self._project_root / 'data')
+        return self._get_path('PERFORMANCE_RNN_DATA_DIR', self.project_root / 'data')
 
     @property
     def midi_dir(self) -> Path:
@@ -102,25 +97,25 @@ class ProjectPaths:
     @property
     def models_dir(self) -> Path:
         """Directory for saved model checkpoints."""
-        path = self._get_path('PERFORMANCE_RNN_MODELS_DIR', self._project_root / 'models')
+        path = self._get_path('PERFORMANCE_RNN_MODELS_DIR', self.project_root / 'models')
         return path
 
     @property
     def output_dir(self) -> Path:
         """Directory for generated MIDI output."""
-        path = self._get_path('PERFORMANCE_RNN_OUTPUT_DIR', self._project_root / 'output')
+        path = self._get_path('PERFORMANCE_RNN_OUTPUT_DIR', self.project_root / 'output')
         return path
 
     @property
     def logs_dir(self) -> Path:
         """Directory for log files."""
-        path = self._get_path('PERFORMANCE_RNN_LOGS_DIR', self._project_root / 'logs')
+        path = self._get_path('PERFORMANCE_RNN_LOGS_DIR', self.project_root / 'logs')
         return path
 
     @property
     def runs_dir(self) -> Path:
         """Directory for TensorBoard runs."""
-        path = self._get_path('PERFORMANCE_RNN_RUNS_DIR', self._project_root / 'runs')
+        path = self._get_path('PERFORMANCE_RNN_RUNS_DIR', self.project_root / 'runs')
         return path
 
     @property
@@ -162,7 +157,7 @@ class ProjectPaths:
             session_name += '.sess'
         return self.models_dir / session_name
 
-    def get_log_path(self, log_name: Optional[str] = None) -> Path:
+    def get_log_path(self, log_name: str | None = None) -> Path:
         """
         Get the path for a log file.
 
@@ -174,6 +169,7 @@ class ProjectPaths:
         """
         if log_name is None:
             from datetime import datetime
+
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             log_name = f'model_info_{timestamp}.log'
 

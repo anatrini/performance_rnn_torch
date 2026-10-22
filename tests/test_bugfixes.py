@@ -27,8 +27,15 @@ def small_model(seed=0):
 
 
 def train_config(**kwargs):
-    defaults = dict(batch_size=4, num_epochs=3, window_size=20, stride_size=10,
-                    early_stopping_patience=0, enable_logging=False, saving_interval=1e9)
+    defaults = dict(
+        batch_size=4,
+        num_epochs=3,
+        window_size=20,
+        stride_size=10,
+        early_stopping_patience=0,
+        enable_logging=False,
+        saving_interval=1e9,
+    )
     return TrainConfig(**{**defaults, **kwargs})
 
 
@@ -44,13 +51,14 @@ def random_samples(n, length=200, seed=0):
 
 # 1 -------------------------------------------------------------------------
 
+
 def test_transposition_rotates_the_pitch_histogram_and_keeps_the_density():
     ranges = ControlSeq.feat_ranges()
     hist, dens = ranges['pitch_histogram'], ranges['note_density']
     controls = np.zeros((1, 1, ControlSeq.dim()))
-    controls[0, 0, dens.start + 3] = 1.0          # density bin 3
-    controls[0, 0, hist.start + 0] = 1.0          # all notes are C
-    events = np.array([[EventSeq.feat_ranges()['note_on'].start + 60]])   # C4
+    controls[0, 0, dens.start + 3] = 1.0  # density bin 3
+    controls[0, 0, hist.start + 0] = 1.0  # all notes are C
+    events = np.array([[EventSeq.feat_ranges()['note_on'].start + 60]])  # C4
 
     _, transposed = helpers.transposition(events, controls, 7)
     np.testing.assert_array_equal(transposed[0, 0, dens], controls[0, 0, dens])
@@ -64,6 +72,7 @@ def test_control_layout_matches_the_arrays():
 
 
 # 2 -------------------------------------------------------------------------
+
 
 def test_optimize_minimises_the_validation_loss_and_keeps_only_the_best_trial(tmp_path, monkeypatch):
     optuna = pytest.importorskip('optuna')
@@ -91,6 +100,7 @@ def test_optimize_minimises_the_validation_loss_and_keeps_only_the_best_trial(tm
 
 # 3 -------------------------------------------------------------------------
 
+
 def test_evaluate_is_deterministic_and_leaves_no_gradients():
     model, cfg = small_model()
     data = Dataset.from_samples(random_samples(2))
@@ -99,17 +109,18 @@ def test_evaluate_is_deterministic_and_leaves_no_gradients():
     first = evaluate(model, data, cfg, CPU)
     second = evaluate(model, data, cfg, CPU)
 
-    assert first == second                      # dropout off, same initial states
+    assert first == second  # dropout off, same initial states
     assert all(p.grad is None for p in model.parameters())
-    assert model.training                       # training mode restored
+    assert model.training  # training mode restored
 
 
 # 4 -------------------------------------------------------------------------
 
+
 def test_loss_counts_every_event_including_index_0():
     model, cfg = small_model()
     model.eval()
-    events = torch.zeros(10, 2, dtype=torch.long)    # only event 0
+    events = torch.zeros(10, 2, dtype=torch.long)  # only event 0
     init = torch.zeros(2, cfg.init_dim)
     loss = batch_loss(model, events, None, init)
     logits = model(events, None, init)
@@ -118,6 +129,7 @@ def test_loss_counts_every_event_including_index_0():
 
 
 # 5, 14 ---------------------------------------------------------------------
+
 
 def test_split_keeps_at_least_one_file_on_each_side():
     train, test = Dataset.from_samples(random_samples(3)).train_test_split(0.3)
@@ -134,13 +146,13 @@ def test_split_is_shuffled_and_reproducible():
     data = Dataset.from_samples(samples)
     _, test_a = data.train_test_split(0.3, seed=1)
     _, test_b = data.train_test_split(0.3, seed=1)
-    ids = lambda d: [next(i for i, s in enumerate(samples) if np.array_equal(s[0], e))
-                     for e, _, _ in d.samples]
+    ids = lambda d: [next(i for i, s in enumerate(samples) if np.array_equal(s[0], e)) for e, _, _ in d.samples]
     assert ids(test_a) == ids(test_b)
-    assert ids(test_a) != [7, 8, 9]             # not simply the last files
+    assert ids(test_a) != [7, 8, 9]  # not simply the last files
 
 
 # 6 -------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize('batch, window, stride', [(4, 20, 10), (3, 50, 7), (8, 199, 1)])
 def test_get_length_matches_the_batches(batch, window, stride):
@@ -150,10 +162,11 @@ def test_get_length_matches_the_batches(batch, window, stride):
 
 # 7, 15 ---------------------------------------------------------------------
 
+
 def test_training_saves_the_best_model_and_the_last_state(tmp_path):
     model, cfg = small_model()
     data = Dataset.from_samples(random_samples(4, length=300))
-    sess = tmp_path / 'nested' / 'model.sess'          # folder does not exist yet
+    sess = tmp_path / 'nested' / 'model.sess'  # folder does not exist yet
     tc = train_config()
     best = train_model(model, optim.Adam(model.parameters(), 1e-2), data, tc, cfg, sess, CPU)
 
@@ -165,6 +178,7 @@ def test_training_saves_the_best_model_and_the_last_state(tmp_path):
 
 
 # 8 -------------------------------------------------------------------------
+
 
 def test_tensorboard_steps_keep_counting_across_epochs(tmp_path, monkeypatch):
     tensorboard = pytest.importorskip('torch.utils.tensorboard')
@@ -188,16 +202,24 @@ def test_tensorboard_steps_keep_counting_across_epochs(tmp_path, monkeypatch):
 
 # 9 -------------------------------------------------------------------------
 
+
 def test_generation_samples_by_default():
     assert GenerateConfig().greedy_ratio == 0.0
 
 
 # 10 ------------------------------------------------------------------------
 
+
 def test_trim_overlapped_notes():
-    seq = NoteSeq([Note(60, 60, 0.0, 1.0), Note(90, 60, 0.0, 0.5),     # same start: merged
-                   Note(70, 60, 0.5, 2.0), Note(70, 60, 1.0, 1.5),     # overlapping: first one cut
-                   Note(80, 64, 0.2, 0.4)])
+    seq = NoteSeq(
+        [
+            Note(60, 60, 0.0, 1.0),
+            Note(90, 60, 0.0, 0.5),  # same start: merged
+            Note(70, 60, 0.5, 2.0),
+            Note(70, 60, 1.0, 1.5),  # overlapping: first one cut
+            Note(80, 64, 0.2, 0.4),
+        ]
+    )
     seq.trim_overlapped_notes()
     c4 = [(n.start, n.end, n.velocity) for n in seq.notes if n.pitch == 60]
     assert c4 == [(0.0, 0.5, 90), (0.5, 1.0, 70), (1.0, 1.5, 70)]
@@ -205,8 +227,10 @@ def test_trim_overlapped_notes():
 
 # 11 ------------------------------------------------------------------------
 
+
 def test_preprocess_skips_empty_files(tmp_path):
     from performance_rnn_torch.cli.preprocess import preprocess_midi_files_under
+
     midi_root = tmp_path / 'midi'
     midi_root.mkdir()
     PrettyMIDI().write(str(midi_root / 'empty.mid'))
@@ -223,11 +247,13 @@ def test_preprocess_skips_empty_files(tmp_path):
 
 # 12 ------------------------------------------------------------------------
 
+
 def test_licence_keeps_the_original_notice():
     assert 'Copyright (c) 2018 Yuankui Lee' in (ROOT / 'LICENSE').read_text()
 
 
 # 16 ------------------------------------------------------------------------
+
 
 def test_model_parameters_from_the_command_line_are_applied():
     cfg = ModelConfig().with_params('hidden_dim=64, gru_dropout=0.1')
@@ -238,8 +264,10 @@ def test_model_parameters_from_the_command_line_are_applied():
 
 # 17 ------------------------------------------------------------------------
 
+
 def test_tensorboard_logging_can_be_turned_off():
     from performance_rnn_torch.cli import train
+
     parser = argparse.ArgumentParser()
     train.add_arguments(parser)
     assert parser.parse_args([]).enable_logging is True

@@ -5,11 +5,20 @@ import pytest
 import torch
 from pretty_midi import ControlChange, Instrument, Note, PrettyMIDI
 
+from performance_rnn_torch.config import ModelConfig
 from performance_rnn_torch.core import PerformanceRNN
 from performance_rnn_torch.core.sequence import (
-    DENSITY_BIN_RANGES, FORMAT_VERSION, ControlSeq, EventSeq, NoteSeq, apply_sustain,
-    bin_to_velocity, load_processed, save_processed, velocity_to_bin)
-from performance_rnn_torch.config import ModelConfig
+    DENSITY_BIN_RANGES,
+    FORMAT_VERSION,
+    ControlSeq,
+    EventSeq,
+    NoteSeq,
+    apply_sustain,
+    bin_to_velocity,
+    load_processed,
+    save_processed,
+    velocity_to_bin,
+)
 from performance_rnn_torch.training import load_checkpoint, load_session, save_checkpoint
 
 R = EventSeq.feat_ranges()
@@ -24,11 +33,16 @@ def seq(*notes):
 def random_notes(seed, n=200):
     rng = np.random.default_rng(seed)
     starts = np.cumsum(rng.exponential(0.15, n))
-    return seq(*[(int(rng.integers(21, 109)), int(rng.integers(1, 128)), float(s),
-                  float(s + rng.uniform(0.005, 2.0))) for s in starts])
+    return seq(
+        *[
+            (int(rng.integers(21, 109)), int(rng.integers(1, 128)), float(s), float(s + rng.uniform(0.005, 2.0)))
+            for s in starts
+        ]
+    )
 
 
 # ------------------------------------------------------------------ vocabulary
+
 
 def test_vocabulary_is_magentas():
     assert dict(EventSeq.feat_dims()) == {'note_on': 128, 'note_off': 128, 'time_shift': 100, 'velocity': 32}
@@ -88,6 +102,7 @@ def test_decoding_limits_notes_without_note_off():
 
 # ------------------------------------------------------------------ sustain
 
+
 def test_sustain_extends_until_the_pedal_is_released():
     notes = [Note(64, 60, 0.0, 0.5), Note(64, 64, 1.0, 1.2)]
     pedal = [ControlChange(64, 127, 0.2), ControlChange(64, 0, 2.0)]
@@ -110,6 +125,7 @@ def test_notes_without_pedal_are_unchanged():
 # ------------------------------------------------------------------ controls
 # Straight translations of Magenta's NoteDensityPerformanceControlSignal.extract
 # and PitchHistogramPerformanceControlSignal.extract, as reference.
+
 
 def magenta_density(indices):
     window, out, prev_type, prev = 300, [], None, 0.0
@@ -199,6 +215,7 @@ def test_control_vectors():
 
 
 # ------------------------------------------------------------------ files
+
 
 def test_processed_file_round_trip(tmp_path):
     events = EventSeq.from_note_seq(random_notes(1))

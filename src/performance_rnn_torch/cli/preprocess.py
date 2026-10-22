@@ -5,23 +5,24 @@ This command preprocesses MIDI files into a format suitable for training
 the PerformanceRNN model. It converts MIDI files into sequences of events
 and control sequences.
 """
+
 import hashlib
 import os
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
-from concurrent.futures import ProcessPoolExecutor
-from performance_rnn_torch.utils.logger import setup_logger
+from tqdm import tqdm
+
 from performance_rnn_torch.core.sequence import ControlSeq, EventSeq, NoteSeq
 from performance_rnn_torch.core.sequence import save_processed as write_processed
 from performance_rnn_torch.utils import helpers, paths
-from tqdm import tqdm
-
+from performance_rnn_torch.utils.logger import setup_logger
 
 logger = setup_logger('Preprocess logger')
 
-#========================================================================
+# ========================================================================
 # Settings
-#========================================================================
+# ========================================================================
 
 HELP = 'Preprocess MIDI files into training data'
 EPILOG = """
@@ -39,23 +40,32 @@ Examples:
 
 def add_arguments(parser):
 
-    parser.add_argument('-m', '--midi_root',
-                      dest='midi_root',
-                      type=str,
-                      default=str(paths.midi_dir),
-                      help=f'Root directory of MIDI files (default: {paths.midi_dir})')
+    parser.add_argument(
+        '-m',
+        '--midi_root',
+        dest='midi_root',
+        type=str,
+        default=str(paths.midi_dir),
+        help=f'Root directory of MIDI files (default: {paths.midi_dir})',
+    )
 
-    parser.add_argument('-s', '--save_dir',
-                      dest='save_dir',
-                      type=str,
-                      default=str(paths.processed_dir),
-                      help=f'Directory to save processed data (default: {paths.processed_dir})')
+    parser.add_argument(
+        '-s',
+        '--save_dir',
+        dest='save_dir',
+        type=str,
+        default=str(paths.processed_dir),
+        help=f'Directory to save processed data (default: {paths.processed_dir})',
+    )
 
-    parser.add_argument('-w', '--num_workers',
-                      dest='num_workers',
-                      default=-1,
-                      type=int,
-                      help='Number of worker processes (default: -1, all CPU cores)')
+    parser.add_argument(
+        '-w',
+        '--num_workers',
+        dest='num_workers',
+        default=-1,
+        type=int,
+        help='Number of worker processes (default: -1, all CPU cores)',
+    )
 
 
 def preprocess_midi(path):
@@ -66,6 +76,7 @@ def preprocess_midi(path):
     event_seq = EventSeq.from_note_seq(note_seq)
     control_seq = ControlSeq.from_event_seq(event_seq)
     return event_seq, control_seq
+
 
 def preprocess_midi_files_under(midi_root, save_dir, num_workers):
     midi_paths = list(helpers.find_files_by_extensions(midi_root, ['.mid', '.midi']))
@@ -133,4 +144,3 @@ def main(args):
     logger.info(f'Number of workers: {num_workers}')
 
     preprocess_midi_files_under(midi_root, save_dir, num_workers)
-

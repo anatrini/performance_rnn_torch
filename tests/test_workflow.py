@@ -8,13 +8,25 @@ from performance_rnn_torch.config import ModelConfig, TrainConfig, default_devic
 from performance_rnn_torch.core import Dataset, PerformanceRNN
 from performance_rnn_torch.core.sequence import ControlSeq, EventSeq
 from performance_rnn_torch.generation import (
-    controls_from_spec, model_name, next_file_number, parse_control, write_midi_files)
+    controls_from_spec,
+    model_name,
+    next_file_number,
+    parse_control,
+    write_midi_files,
+)
 from performance_rnn_torch.training import load_session, set_seed, train_model
 
 CPU = torch.device('cpu')
 MODEL = ModelConfig(init_dim=4, hidden_dim=16, gru_layers=2, gru_dropout=0.2)
-TRAIN = TrainConfig(batch_size=4, num_epochs=2, window_size=20, stride_size=10,
-                    early_stopping_patience=0, enable_logging=False, saving_interval=1e9)
+TRAIN = TrainConfig(
+    batch_size=4,
+    num_epochs=2,
+    window_size=20,
+    stride_size=10,
+    early_stopping_patience=0,
+    enable_logging=False,
+    saving_interval=1e9,
+)
 
 
 def dataset(seed=0):
@@ -44,7 +56,7 @@ def test_training_continues_a_checkpoint_with_its_own_configuration(tmp_path):
     run(path, 0)
     model, optimizer, cfg = load_session(path, ModelConfig(hidden_dim=999), CPU, 1e-3)
     assert cfg == MODEL and model.hidden_dim == 16
-    assert optimizer.state_dict()['state']        # optimizer state restored
+    assert optimizer.state_dict()['state']  # optimizer state restored
 
 
 def test_default_device_names():

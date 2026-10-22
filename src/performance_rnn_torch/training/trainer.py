@@ -34,8 +34,9 @@ def last_session_path(sess_path) -> Path:
     return sess_path.with_name(f'{sess_path.stem}-last{sess_path.suffix}')
 
 
-def load_session(sess_path, model_config: ModelConfig, device: torch.device, learning_rate: float,
-                 reset_optimizer: bool = False) -> tuple[PerformanceRNN, torch.optim.Optimizer, ModelConfig]:
+def load_session(
+    sess_path, model_config: ModelConfig, device: torch.device, learning_rate: float, reset_optimizer: bool = False
+) -> tuple[PerformanceRNN, torch.optim.Optimizer, ModelConfig]:
     """Continue the training saved in sess_path, or start a new model.
 
     An existing checkpoint keeps its own model configuration.
@@ -67,15 +68,19 @@ def load_dataset(data_path) -> Dataset:
     return dataset
 
 
-def batch_loss(model: PerformanceRNN, events: torch.Tensor, controls: torch.Tensor | None,
-               init: torch.Tensor, teacher_forcing_ratio: float = 1.0) -> torch.Tensor:
+def batch_loss(
+    model: PerformanceRNN,
+    events: torch.Tensor,
+    controls: torch.Tensor | None,
+    init: torch.Tensor,
+    teacher_forcing_ratio: float = 1.0,
+) -> torch.Tensor:
     """Cross entropy of every predicted event of a batch [window, batch]."""
     logits = model(events, controls, init, teacher_forcing_ratio)
     return nn.functional.cross_entropy(logits.reshape(-1, logits.shape[-1]), events.reshape(-1))
 
 
-def evaluate(model: PerformanceRNN, data: Dataset, cfg: TrainConfig, device: torch.device,
-             seed: int = 0) -> float:
+def evaluate(model: PerformanceRNN, data: Dataset, cfg: TrainConfig, device: torch.device, seed: int = 0) -> float:
     """
     Mean loss on held-out data: no dropout, no gradients, true previous events
     as input, the same initial states at every call.
@@ -97,8 +102,15 @@ def evaluate(model: PerformanceRNN, data: Dataset, cfg: TrainConfig, device: tor
     return float(np.mean(losses)) if losses else math.inf
 
 
-def train_model(model: PerformanceRNN, optimizer: torch.optim.Optimizer, dataset: Dataset,
-                cfg: TrainConfig, model_config: ModelConfig, sess_path, device: torch.device) -> float:
+def train_model(
+    model: PerformanceRNN,
+    optimizer: torch.optim.Optimizer,
+    dataset: Dataset,
+    cfg: TrainConfig,
+    model_config: ModelConfig,
+    sess_path,
+    device: torch.device,
+) -> float:
     """
     Train the model.
 
@@ -113,6 +125,7 @@ def train_model(model: PerformanceRNN, optimizer: torch.optim.Optimizer, dataset
     if cfg.enable_logging:
         try:
             from torch.utils.tensorboard import SummaryWriter
+
             writer = SummaryWriter()
         except ImportError:
             logger.warning('TensorBoard is not installed (uv sync --extra tensorboard): logging disabled')
@@ -122,8 +135,9 @@ def train_model(model: PerformanceRNN, optimizer: torch.optim.Optimizer, dataset
     train_data, test_data = dataset.train_test_split(cfg.train_test_ratio, seed=cfg.seed)
     logger.info(f'Training on {len(train_data.samples)} files, validating on {len(test_data.samples)}')
     if test_data.get_length(cfg.batch_size, cfg.window_size, cfg.stride_size) == 0:
-        logger.warning('The validation files are too short for one batch: '
-                       'no validation loss, the best model cannot be chosen')
+        logger.warning(
+            'The validation files are too short for one batch: no validation loss, the best model cannot be chosen'
+        )
 
     last_path = last_session_path(sess_path)
     best_val_loss = math.inf
@@ -132,8 +146,9 @@ def train_model(model: PerformanceRNN, optimizer: torch.optim.Optimizer, dataset
     model.train()
 
     def save(path):
-        save_checkpoint(path, model, model_config, optimizer, epoch=epoch,
-                        best_val_loss=best_val_loss, train_config=asdict(cfg))
+        save_checkpoint(
+            path, model, model_config, optimizer, epoch=epoch, best_val_loss=best_val_loss, train_config=asdict(cfg)
+        )
         logger.info(f'Saved {path}')
 
     try:
@@ -148,8 +163,7 @@ def train_model(model: PerformanceRNN, optimizer: torch.optim.Optimizer, dataset
                     events, controls = helpers.transposition(events, controls, offset)
 
                 events = torch.as_tensor(events, device=device)
-                controls = torch.as_tensor(controls, device=device) \
-                    if np.random.random() < cfg.control_ratio else None
+                controls = torch.as_tensor(controls, device=device) if np.random.random() < cfg.control_ratio else None
                 init = torch.randn(cfg.batch_size, model.init_dim, device=device)
 
                 loss = batch_loss(model, events, controls, init, cfg.teacher_forcing_ratio)

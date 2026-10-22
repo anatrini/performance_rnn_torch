@@ -32,17 +32,17 @@ MAX_SHIFT_STEPS = 100
 NUM_PITCHES = 128
 NUM_VELOCITY_BINS = 32
 MIN_VELOCITY, MAX_VELOCITY = 1, 127
-VELOCITY_BIN_SIZE = -(-(MAX_VELOCITY - MIN_VELOCITY + 1) // NUM_VELOCITY_BINS)   # 4
+VELOCITY_BIN_SIZE = -(-(MAX_VELOCITY - MIN_VELOCITY + 1) // NUM_VELOCITY_BINS)  # 4
 
 DENSITY_WINDOW_SECONDS = 3.0
-DENSITY_BIN_RANGES = np.array([1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0])   # onsets per second
+DENSITY_BIN_RANGES = np.array([1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0])  # onsets per second
 HISTOGRAM_WINDOW_SECONDS = 5.0
 HISTOGRAM_PRIOR_COUNT = 0.01
 
 SUSTAIN_CONTROL = 64
-DEFAULT_VELOCITY = 64          # before the first velocity event
-MAX_NOTE_DURATION = 5.0        # seconds; notes decoded without a note_off end here
-DEFAULT_PROGRAM = 0            # acoustic grand piano
+DEFAULT_VELOCITY = 64  # before the first velocity event
+MAX_NOTE_DURATION = 5.0  # seconds; notes decoded without a note_off end here
+DEFAULT_PROGRAM = 0  # acoustic grand piano
 DEFAULT_TEMPO = 120
 
 
@@ -66,6 +66,7 @@ def seconds_to_step(seconds):
 # Notes
 # ==================================================================================
 
+
 def apply_sustain(notes, control_changes, control=SUSTAIN_CONTROL):
     """Extend notes held by the sustain pedal (one instrument).
 
@@ -74,8 +75,9 @@ def apply_sustain(notes, control_changes, control=SUSTAIN_CONTROL):
     """
     SUSTAIN_ON, SUSTAIN_OFF, NOTE_ON, NOTE_OFF = range(4)
     events = [(n.start, NOTE_ON, n) for n in notes] + [(n.end, NOTE_OFF, n) for n in notes]
-    events += [(cc.time, SUSTAIN_ON if cc.value >= 64 else SUSTAIN_OFF, None)
-               for cc in control_changes if cc.number == control]
+    events += [
+        (cc.time, SUSTAIN_ON if cc.value >= 64 else SUSTAIN_OFF, None) for cc in control_changes if cc.number == control
+    ]
     events.sort(key=lambda e: (e[0], e[1]))
 
     active, sustain, removed = [], False, set()
@@ -112,7 +114,6 @@ def apply_sustain(notes, control_changes, control=SUSTAIN_CONTROL):
 
 
 class NoteSeq:
-
     @staticmethod
     def from_midi(midi, programs=range(128), sustain=True):
         """Notes of all non-drum instruments, with the sustain pedal applied."""
@@ -173,13 +174,18 @@ class NoteSeq:
 # Events
 # ==================================================================================
 
-class EventSeq:
 
+class EventSeq:
     @staticmethod
     def feat_dims():
-        return collections.OrderedDict([('note_on', NUM_PITCHES), ('note_off', NUM_PITCHES),
-                                        ('time_shift', MAX_SHIFT_STEPS),
-                                        ('velocity', NUM_VELOCITY_BINS)])
+        return collections.OrderedDict(
+            [
+                ('note_on', NUM_PITCHES),
+                ('note_off', NUM_PITCHES),
+                ('time_shift', MAX_SHIFT_STEPS),
+                ('velocity', NUM_VELOCITY_BINS),
+            ]
+        )
 
     @staticmethod
     def feat_ranges():
@@ -241,8 +247,9 @@ class EventSeq:
     def steps(self):
         """Step of every event, and the time shift (in steps) each one adds."""
         start = EventSeq.feat_ranges()['time_shift'].start
-        shift = np.where((self.indices >= start) & (self.indices < start + MAX_SHIFT_STEPS),
-                         self.indices - start + 1, 0)
+        shift = np.where(
+            (self.indices >= start) & (self.indices < start + MAX_SHIFT_STEPS), self.indices - start + 1, 0
+        )
         after = np.cumsum(shift)
         return after - shift, shift
 
@@ -285,6 +292,7 @@ class EventSeq:
 # Controls
 # ==================================================================================
 
+
 def density_to_bin(notes_per_second):
     """Note density (onsets per second) to its class 0-7."""
     return int(np.searchsorted(DENSITY_BIN_RANGES, notes_per_second, side='right'))
@@ -295,7 +303,7 @@ class Control:
 
     def __init__(self, pitch_histogram, note_density):
         self.pitch_histogram = pitch_histogram  # 12 values
-        self.note_density = note_density        # class 0-7
+        self.note_density = note_density  # class 0-7
 
     def __repr__(self):
         return f'Control(pitch_histogram={list(self.pitch_histogram)}, note_density={self.note_density})'
@@ -308,11 +316,9 @@ class Control:
 
 
 class ControlSeq:
-
     @staticmethod
     def feat_dims():
-        return collections.OrderedDict([('note_density', len(DENSITY_BIN_RANGES) + 1),
-                                        ('pitch_histogram', 12)])
+        return collections.OrderedDict([('note_density', len(DENSITY_BIN_RANGES) + 1), ('pitch_histogram', 12)])
 
     @staticmethod
     def feat_ranges():
@@ -328,7 +334,7 @@ class ControlSeq:
         return sum(ControlSeq.feat_dims().values())
 
     def __init__(self, density, histogram):
-        self.density = np.asarray(density, dtype=np.int64)       # [n] class 0-7
+        self.density = np.asarray(density, dtype=np.int64)  # [n] class 0-7
         self.histogram = np.asarray(histogram, dtype=np.float64)  # [n, 12], rows sum to 1
 
     def __len__(self):
@@ -375,7 +381,7 @@ class ControlSeq:
                 active.discard(index - off_start)
             elif shift[k] and active:
                 counts = np.bincount([p % 12 for p in active], minlength=12)
-                sounding[before[k]:after[k]] += counts
+                sounding[before[k] : after[k]] += counts
         cumulative = np.concatenate([np.zeros((1, 12)), np.cumsum(sounding, axis=0)])
         window = round(HISTOGRAM_WINDOW_SECONDS * STEPS_PER_SECOND)
         end = np.searchsorted(before, t0 + window, side='left')
@@ -389,8 +395,7 @@ class ControlSeq:
 
     def to_compressed_arrays(self):
         """Density class and histogram (0-255) as uint8, for the data files."""
-        return (self.density.astype(np.uint8),
-                np.round(self.histogram * 255).astype(np.uint8))
+        return (self.density.astype(np.uint8), np.round(self.histogram * 255).astype(np.uint8))
 
     @staticmethod
     def recover_compressed_arrays(density, histogram):
@@ -407,11 +412,13 @@ class ControlSeq:
 # Files
 # ==================================================================================
 
+
 def save_processed(path, event_seq, control_seq):
     """Write one preprocessed performance (.npz)."""
     density, histogram = control_seq.to_compressed_arrays()
-    np.savez_compressed(path, format_version=FORMAT_VERSION, events=event_seq.to_array(),
-                        density=density, histogram=histogram)
+    np.savez_compressed(
+        path, format_version=FORMAT_VERSION, events=event_seq.to_array(), density=density, histogram=histogram
+    )
 
 
 def load_processed(path, compressed=False):
@@ -422,8 +429,9 @@ def load_processed(path, compressed=False):
     with np.load(path) as data:
         version = int(data['format_version']) if 'format_version' in data else None
         if version != FORMAT_VERSION:
-            raise ValueError(f'{path}: format version {version}, expected {FORMAT_VERSION}; '
-                             'run `prnn preprocess` again')
+            raise ValueError(
+                f'{path}: format version {version}, expected {FORMAT_VERSION}; run `prnn preprocess` again'
+            )
         events, density, histogram = data['events'], data['density'], data['histogram']
     if compressed:
         return events, density, histogram

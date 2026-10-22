@@ -4,9 +4,10 @@
 # Temporarily set up path
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent))
 
-from performance_rnn_torch.core.sequence import EventSeq, ControlSeq
+from performance_rnn_torch.core.sequence import ControlSeq, EventSeq
 
 print("=" * 70)
 print("Event Dimension Verification")
@@ -19,7 +20,7 @@ for feat_name, feat_dim in feat_dims.items():
 
 total_dim = EventSeq.dim()
 print(f"\nTotal Event Dimension: {total_dim}")
-print(f"Expected (Magenta):     388")
+print("Expected (Magenta):     388")
 print(f"Match: {'✓ YES' if total_dim == 388 else '✗ NO'}")
 
 print("\n" + "=" * 70)

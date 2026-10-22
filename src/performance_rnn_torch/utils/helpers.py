@@ -1,16 +1,12 @@
 """Helper utility functions for Performance RNN."""
 
 import os
-from pathlib import Path
-from typing import Generator, List, Optional
+from collections.abc import Generator
 
 import numpy as np
 
 
-def find_files_by_extensions(
-    root: str,
-    exts: Optional[List[str]] = None
-) -> Generator[str, None, None]:
+def find_files_by_extensions(root: str, exts: list[str] | None = None) -> Generator[str, None, None]:
     """
     Recursively find all files with specified extensions.
 
@@ -28,10 +24,7 @@ def find_files_by_extensions(
         if not exts:
             return True
         name = name.lower()
-        for ext in exts:
-            if name.endswith(ext.lower()):
-                return True
-        return False
+        return any(name.endswith(ext.lower()) for ext in exts)
 
     for path, _, files in os.walk(root):
         for name in files:
@@ -58,11 +51,7 @@ def event_indices_to_midi_file(event_indices: np.ndarray, midi_file_name: str) -
     return len(note_seq.notes)
 
 
-def transposition(
-    events: np.ndarray,
-    controls: np.ndarray,
-    offset: int = 0
-) -> tuple:
+def transposition(events: np.ndarray, controls: np.ndarray, offset: int = 0) -> tuple:
     """
     Transpose events and controls by a number of semitones (at most an octave).
 
@@ -95,6 +84,6 @@ def transposition(
         events[mask] = start + pitch
 
     hist = ControlSeq.feat_ranges()['pitch_histogram']
-    controls[..., hist.start:hist.stop] = np.roll(controls[..., hist.start:hist.stop], offset, -1)
+    controls[..., hist.start : hist.stop] = np.roll(controls[..., hist.start : hist.stop], offset, -1)
 
     return events, controls

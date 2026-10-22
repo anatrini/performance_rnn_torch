@@ -29,10 +29,10 @@ def step_by_step(model, events, controls, init):
     event = torch.full((1, events.shape[1]), model.start_event)
     outputs = []
     for t in range(events.shape[0]):
-        control = None if controls is None else controls[t:t + 1]
+        control = None if controls is None else controls[t : t + 1]
         logits, hidden = model.step(event, control, hidden)
         outputs.append(logits)
-        event = events[t:t + 1]
+        event = events[t : t + 1]
     return torch.cat(outputs)
 
 
@@ -48,10 +48,11 @@ def test_whole_window_equals_step_by_step(with_controls):
 def test_scheduled_sampling_with_only_true_events_equals_the_whole_window(monkeypatch):
     model = make_model().eval()
     events, controls, init = inputs()
-    monkeypatch.setattr(model_module.random, 'random', lambda: 0.0)   # always the true event
+    monkeypatch.setattr(model_module.random, 'random', lambda: 0.0)  # always the true event
     with torch.no_grad():
-        torch.testing.assert_close(model(events, controls, init, teacher_forcing_ratio=0.5),
-                                   model(events, controls, init))
+        torch.testing.assert_close(
+            model(events, controls, init, teacher_forcing_ratio=0.5), model(events, controls, init)
+        )
 
 
 def test_gradients_reach_every_layer():
@@ -59,8 +60,9 @@ def test_gradients_reach_every_layer():
     events, controls, init = inputs()
     loss = torch.nn.functional.cross_entropy(model(events, controls, init).reshape(-1, E), events.reshape(-1))
     loss.backward()
-    assert all(p.grad is not None and p.grad.abs().sum() > 0
-               for name, p in model.named_parameters() if 'embedding' not in name)
+    assert all(
+        p.grad is not None and p.grad.abs().sum() > 0 for name, p in model.named_parameters() if 'embedding' not in name
+    )
 
 
 def test_controls_of_one_step_are_repeated():
@@ -102,7 +104,7 @@ def test_top_k_and_top_p_keep_only_likely_events():
     logits = torch.log(torch.tensor([[0.5, 0.3, 0.15, 0.05]])).repeat(2000, 1)
     torch.manual_seed(0)
     assert set(PerformanceRNN.sample(logits, top_k=2).tolist()) == {0, 1}
-    assert set(PerformanceRNN.sample(logits, top_p=0.7).tolist()) == {0, 1}   # 0.5 + 0.3 crosses 0.7
+    assert set(PerformanceRNN.sample(logits, top_p=0.7).tolist()) == {0, 1}  # 0.5 + 0.3 crosses 0.7
     assert set(PerformanceRNN.sample(logits).tolist()) == {0, 1, 2, 3}
 
 
@@ -135,5 +137,5 @@ def test_batches_are_the_windows_of_the_files():
     for b, (events, controls) in enumerate(batches):
         for k in range(4):
             i, s = expected[b * 4 + k]
-            np.testing.assert_array_equal(events[:, k], samples[i][0][s:s + 50])
-            np.testing.assert_allclose(controls[:, k], samples[i][1][s:s + 50], atol=1e-6)
+            np.testing.assert_array_equal(events[:, k], samples[i][0][s : s + 50])
+            np.testing.assert_allclose(controls[:, k], samples[i][1][s : s + 50], atol=1e-6)

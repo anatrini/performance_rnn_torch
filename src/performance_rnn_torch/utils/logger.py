@@ -1,18 +1,14 @@
 """Logging utilities for Performance RNN."""
 
-import time
 import logging
+import time
 from pathlib import Path
-from typing import Optional
 
 from performance_rnn_torch.utils.paths import paths
 
 
 def setup_logger(
-    name: str,
-    level: int = logging.INFO,
-    file: bool = False,
-    log_path: Optional[Path] = None
+    name: str, level: int = logging.INFO, file: bool = False, log_path: Path | None = None
 ) -> logging.Logger:
     """
     Set up a logger with console and optional file output.
@@ -49,9 +45,7 @@ def setup_logger(
             log_path = paths.get_log_path(f'model_info_{timestamp}.log')
 
         file_handler = logging.FileHandler(log_path)
-        file_handler.setFormatter(
-            logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-        )
+        file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
         logger.addHandler(file_handler)
 
     return logger

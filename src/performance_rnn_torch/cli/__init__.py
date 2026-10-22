@@ -28,9 +28,12 @@ def main(argv=None):
     if argv and argv[0] in COMMANDS:
         name = argv[0]
         module = importlib.import_module(f'performance_rnn_torch.cli.{name}')
-        sub = argparse.ArgumentParser(prog=f'prnn {name}', description=module.HELP,
-                                      epilog=module.EPILOG,
-                                      formatter_class=argparse.RawDescriptionHelpFormatter)
+        sub = argparse.ArgumentParser(
+            prog=f'prnn {name}',
+            description=module.HELP,
+            epilog=module.EPILOG,
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+        )
         module.add_arguments(sub)
         args = sub.parse_args(argv[1:])
         try:

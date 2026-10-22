@@ -30,14 +30,34 @@ kept, in models/optimization/, with its hyperparameters in best-params.json.
 
 
 def add_arguments(parser):
-    parser.add_argument('-S', '--session', dest='sess_path', default=str(paths.get_model_path('optimization')),
-                        help='The trials are saved in a folder with this name (default: %(default)s)')
-    parser.add_argument('-d', '--dataset', dest='data_path', default=str(paths.processed_dir),
-                        help='Folder of the preprocessed files (default: %(default)s)')
-    parser.add_argument('-n', '--n-trials', dest='n_trials', type=int, default=20,
-                        help='Number of trials (default: %(default)s; 100 or more for a thorough search)')
-    parser.add_argument('--logging', dest='enable_logging', action='store_true',
-                        help='TensorBoard logging of every trial (many log files)')
+    parser.add_argument(
+        '-S',
+        '--session',
+        dest='sess_path',
+        default=str(paths.get_model_path('optimization')),
+        help='The trials are saved in a folder with this name (default: %(default)s)',
+    )
+    parser.add_argument(
+        '-d',
+        '--dataset',
+        dest='data_path',
+        default=str(paths.processed_dir),
+        help='Folder of the preprocessed files (default: %(default)s)',
+    )
+    parser.add_argument(
+        '-n',
+        '--n-trials',
+        dest='n_trials',
+        type=int,
+        default=20,
+        help='Number of trials (default: %(default)s; 100 or more for a thorough search)',
+    )
+    parser.add_argument(
+        '--logging',
+        dest='enable_logging',
+        action='store_true',
+        help='TensorBoard logging of every trial (many log files)',
+    )
     parser.add_argument('--seed', type=int, default=0, help='Random seed (default: %(default)s)')
     parser.add_argument('--device', default='auto', help='auto, cpu, mps or cuda (default: %(default)s)')
 
@@ -48,8 +68,9 @@ def trial_session_path(sess_path, number: int) -> Path:
     return sess_path.with_suffix('') / f'trial-{number}{sess_path.suffix}'
 
 
-def objective(trial, sess_path, model_config: ModelConfig, train_config: TrainConfig,
-              device: torch.device, dataset) -> float:
+def objective(
+    trial, sess_path, model_config: ModelConfig, train_config: TrainConfig, device: torch.device, dataset
+) -> float:
     """Train a fresh model with the trial's hyperparameters; return its validation loss.
 
     Only the checkpoints of the best trial so far are kept.
@@ -59,7 +80,8 @@ def objective(trial, sess_path, model_config: ModelConfig, train_config: TrainCo
         init_dim=trial.suggest_categorical('init_dim', [32, 64]),
         hidden_dim=trial.suggest_categorical('hidden_dim', [256, 512, 1024]),
         gru_layers=trial.suggest_int('gru_layers', 2, 5),
-        gru_dropout=trial.suggest_float('gru_dropout', 0.0, 0.5))
+        gru_dropout=trial.suggest_float('gru_dropout', 0.0, 0.5),
+    )
     cfg = replace(
         train_config,
         batch_size=trial.suggest_categorical('batch_size', [16, 32, 64, 128]),
@@ -68,7 +90,8 @@ def objective(trial, sess_path, model_config: ModelConfig, train_config: TrainCo
         stride_size=trial.suggest_categorical('stride_size', [5, 10, 20, 50]),
         learning_rate=trial.suggest_float('learning_rate', 1e-5, 1e-2, log=True),
         control_ratio=trial.suggest_float('control_ratio', 0.1, 1.0),
-        teacher_forcing_ratio=trial.suggest_float('teacher_forcing_ratio', 0.1, 1.0))
+        teacher_forcing_ratio=trial.suggest_float('teacher_forcing_ratio', 0.1, 1.0),
+    )
 
     model = PerformanceRNN(**vars(model_config)).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg.learning_rate)
@@ -101,24 +124,33 @@ def main(args):
     device = default_device(args.device)
     train_config = TrainConfig(enable_logging=args.enable_logging, seed=args.seed)
 
-    logger.info(f'Dataset: {args.data_path}; {args.n_trials} trials, '
-                f'checkpoints in {Path(args.sess_path).with_suffix("")}; device: {device}')
+    logger.info(
+        f'Dataset: {args.data_path}; {args.n_trials} trials, '
+        f'checkpoints in {Path(args.sess_path).with_suffix("")}; device: {device}'
+    )
     dataset = load_dataset(args.data_path)
     logger.info(dataset)
 
     study = optuna.create_study(direction='minimize', sampler=optuna.samplers.TPESampler(seed=args.seed))
-    study.optimize(lambda trial: objective(trial, args.sess_path, ModelConfig(), train_config, device, dataset),
-                   n_trials=args.n_trials)
+    study.optimize(
+        lambda trial: objective(trial, args.sess_path, ModelConfig(), train_config, device, dataset),
+        n_trials=args.n_trials,
+    )
 
     if 'best_path' not in study.user_attrs:
-        logger.error('No trial produced a validation loss: the validation files are too short '
-                     'for one batch. Use more data or a smaller window.')
+        logger.error(
+            'No trial produced a validation loss: the validation files are too short '
+            'for one batch. Use more data or a smaller window.'
+        )
         return 1
     best_path = Path(study.user_attrs['best_path'])
     params_path = best_path.with_name('best-params.json')
-    params_path.write_text(json.dumps({'validation_loss': study.best_value,
-                                       'trial': study.best_trial.number,
-                                       'params': study.best_params}, indent=2))
+    params_path.write_text(
+        json.dumps(
+            {'validation_loss': study.best_value, 'trial': study.best_trial.number, 'params': study.best_params},
+            indent=2,
+        )
+    )
 
     logger.info(f'Best validation loss: {study.best_value:.4f} (trial {study.best_trial.number})')
     for param, value in study.best_params.items():
