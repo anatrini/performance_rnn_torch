@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+
+Models trained with 2.0.0 still load; train new ones to get the new defaults.
+
+### Changed
+
+- **Training windows of 512 events** (`-w`, was 100), as Magenta's training sequences, with a stride of 64 (`-s`, was 10) and at most 50 epochs (`-e`, was 15). With 100 events the model did not learn to use a longer context, and the first events of every window, predicted without context, weighed on the loss five times more.
+- **Transposition on by default**, by up to 3 semitones as in Magenta (was −6 to +5, only with `-T`); `--no-transposition` turns it off.
+- **Half of the batches are trained without controls** (`-c 0.5`, was 1.0), as Magenta's optional conditioning: before, a model had never learnt to play without controls, although `prnn generate` without `-c` and `/controls 0` in `prnn serve` ask for exactly that.
+- **Validation counts every event once**: its windows do not overlap, the last smaller batch is kept, and it measures the loss with and without controls in the same proportion as the training. Small validation sets now give a loss instead of none.
+- The hyperparameter search no longer varies the window, the share of controls and the teacher forcing: they change what the validation loss measures, so the trials could not be compared. Its ranges were narrowed to useful values.
+- `prnn preprocess` options are `--midi-root`, `--save-dir`, `--num-workers`, like the other commands; the names of the data files no longer depend on where the MIDI folder is.
+
+### Fixed
+
+- Continuing a training replaced the best model with the first epoch's, even when it was worse; early stopping started from zero. Both now start from the checkpoint's best validation loss (when the validation settings are the same).
+- The log file of `prnn train` and `prnn optimize` lacked the validation losses and the warnings of the training loop.
+- `prnn generate` failed with a traceback for `-T 0`, `-k` or `-B` above 388, `-p 0`, `-b 0` and for a control file shorter than `-l`; it now says what is wrong.
+- `prnn preprocess` reported success for a missing or empty MIDI folder; a missing data folder in `prnn train` gave a traceback.
+- `prnn prepare` ignored `PERFORMANCE_RNN_MAESTRO_DIR`.
+- `PerformanceRNN` used dropout 0.3 by default, unlike `ModelConfig`; `from performance_rnn_torch.core import *` failed.
+- Unused code from 1.x removed (`NoteSeq.trim_overlapped_notes`, `NoteSeq.copy`, `get_package_root`).
+
 ## 2.0.0 (2026-10-22)
 
 A rewrite. Data files and checkpoints of 1.x cannot be used: preprocess the MIDI files again and train new models.

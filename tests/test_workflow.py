@@ -43,8 +43,8 @@ def dataset(seed=0):
 
 def run(path, seed):
     set_seed(seed)
-    model, optimizer, cfg = load_session(path, MODEL, CPU, TRAIN.learning_rate)
-    return train_model(model, optimizer, dataset(), TRAIN, cfg, path, CPU)
+    model, optimizer, cfg, best = load_session(path, MODEL, CPU, TRAIN.learning_rate, train_config=TRAIN)
+    return train_model(model, optimizer, dataset(), TRAIN, cfg, path, CPU, best)
 
 
 def test_same_seed_same_result(tmp_path):
@@ -54,7 +54,7 @@ def test_same_seed_same_result(tmp_path):
 def test_training_continues_a_checkpoint_with_its_own_configuration(tmp_path):
     path = tmp_path / 'm.sess'
     run(path, 0)
-    model, optimizer, cfg = load_session(path, ModelConfig(hidden_dim=999), CPU, 1e-3)
+    model, optimizer, cfg, _ = load_session(path, ModelConfig(hidden_dim=999), CPU, 1e-3)
     assert cfg == MODEL and model.hidden_dim == 16
     assert optimizer.state_dict()['state']  # optimizer state restored
 

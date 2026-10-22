@@ -13,7 +13,6 @@ __all__ = [
     'EventSeq',
     'ControlSeq',
     'NoteSeq',
-    'Event',
     'Control',
     'PerformanceRNN',
     'Dataset',

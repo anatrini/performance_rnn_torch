@@ -25,7 +25,7 @@ class PerformanceRNN(nn.Module):
         init_dim: int,
         hidden_dim: int,
         gru_layers: int = 3,
-        gru_dropout: float = 0.3,
+        gru_dropout: float = 0.0,
     ):
         super().__init__()
 

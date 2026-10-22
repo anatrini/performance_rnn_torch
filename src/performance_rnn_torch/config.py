@@ -1,9 +1,12 @@
 """Default settings of the model, of training and of generation.
 
 The model and training defaults are those of Magenta's Performance RNN
-(magenta/models/performance_rnn/performance_model.py): three GRU layers of
-512 units, no dropout, batches of 64, gradient norm clipped at 3, learning
-rate 0.001.
+(magenta/models/performance_rnn/performance_model.py and
+magenta/pipelines/performance_pipeline.py): three GRU layers of 512 units, no
+dropout, batches of 64, gradient norm clipped at 3, learning rate 0.001,
+sequences of 512 events, transposition by up to 3 semitones, and half of the
+examples without controls (Magenta's optional conditioning), so that the model
+also plays when no controls are given.
 
 They suit a large dataset such as MAESTRO and a GPU. On a laptop, or when
 training is too slow, use a smaller model, e.g. -M "hidden_dim=256,gru_layers=2"
@@ -18,6 +21,8 @@ from dataclasses import dataclass, fields, replace
 import torch
 
 from performance_rnn_torch.core.sequence import ControlSeq, EventSeq
+
+MAX_TRANSPOSITION = 3  # semitones, as Magenta
 
 
 def default_device(name: str = 'auto') -> torch.device:
@@ -55,14 +60,14 @@ class ModelConfig:
 @dataclass(frozen=True)
 class TrainConfig:
     batch_size: int = 64
-    num_epochs: int = 15
-    window_size: int = 100  # events per training window
-    stride_size: int = 10  # events between the starts of two windows
+    num_epochs: int = 50  # an upper limit: early stopping usually ends sooner
+    window_size: int = 512  # events per training window, as Magenta's sequences
+    stride_size: int = 64  # events between the starts of two training windows
     learning_rate: float = 1e-3
     train_test_ratio: float = 0.3  # share of files used for validation
     early_stopping_patience: int = 5  # epochs without improvement; 0 = off
-    use_transposition: bool = False  # random transposition by -6..5 semitones
-    control_ratio: float = 1.0  # share of batches trained with controls
+    use_transposition: bool = True  # random transposition by up to MAX_TRANSPOSITION semitones
+    control_ratio: float = 0.5  # share of batches trained with controls; the others without
     teacher_forcing_ratio: float = 1.0
     clip_norm: float = 3.0
     saving_interval: float = 180.0  # seconds between saves of the last state

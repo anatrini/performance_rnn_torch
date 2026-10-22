@@ -125,18 +125,40 @@ def add_arguments(parser):
     parser.add_argument('--device', default='auto', help='auto, cpu, mps or cuda (default: %(default)s)')
 
 
+def check_arguments(args, event_dim: int) -> None:
+    """Refuse values that would fail later, with a message that says why."""
+    if args.batch_size < 1:
+        raise ValueError(f'-b must be at least 1, got {args.batch_size}')
+    if args.temperature <= 0:
+        raise ValueError(f'-T must be above 0, got {args.temperature}')
+    if not 0 <= args.top_k <= event_dim:
+        raise ValueError(f'-k must be 0 (off) to {event_dim}, got {args.top_k}')
+    if not 0 < args.top_p <= 1:
+        raise ValueError(f'-p must be above 0 and at most 1 (off), got {args.top_p}')
+    if not 0 <= args.greedy_ratio <= 1:
+        raise ValueError(f'-g must be 0 to 1, got {args.greedy_ratio}')
+    if not 0 <= args.beam_size <= event_dim:
+        raise ValueError(f'-B must be 0 (off) to {event_dim}, got {args.beam_size}')
+
+
 def main(args):
     if args.seed is not None:
         set_seed(args.seed)
     device = default_device(args.device)
     model, _, _ = load_model(args.sess_path, device)
+    check_arguments(args, model.event_dim)
     controls, description = controls_from_spec(args.control, args.batch_size, device)
 
     steps = args.max_len
-    if steps == 0 and controls is not None and controls.shape[0] > 1:
+    from_file = controls is not None and controls.shape[0] > 1
+    if steps == 0 and from_file:
         steps = controls.shape[0]
     if steps <= 0:
-        raise ValueError('give a length with -l, or a control file whose length is used')
+        raise ValueError('give a length with -l, or a control file whose length is used (-l 0)')
+    if from_file and steps > controls.shape[0]:
+        raise ValueError(
+            f'the control file has {controls.shape[0]} events, fewer than -l {steps}: use -l 0 for its length'
+        )
 
     logger.info(f'Model {args.sess_path} on {device}; controls: {description}')
     init = (

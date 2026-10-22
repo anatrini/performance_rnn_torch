@@ -134,9 +134,6 @@ class NoteSeq:
     def __init__(self, notes=()):
         self.notes = sorted((n for n in notes if n.end >= n.start), key=lambda n: n.start)
 
-    def copy(self):
-        return copy.deepcopy(self)
-
     def to_midi(self, program=DEFAULT_PROGRAM, tempo=DEFAULT_TEMPO):
         midi = PrettyMIDI(initial_tempo=tempo)
         inst = Instrument(program, False, 'Performance RNN')
@@ -151,23 +148,6 @@ class NoteSeq:
         for note in self.notes:
             note.start += offset
             note.end += offset
-
-    def trim_overlapped_notes(self, min_interval=0):
-        """Merge notes of the same pitch that start within min_interval of each
-        other; otherwise end a note where the next one of the same pitch starts."""
-        last_notes = {}
-        kept = []
-        for note in self.notes:
-            last_note = last_notes.get(note.pitch)
-            if last_note is not None and note.start - last_note.start <= min_interval:
-                last_note.end = max(note.end, last_note.end)
-                last_note.velocity = max(note.velocity, last_note.velocity)
-                continue
-            if last_note is not None and note.start < last_note.end:
-                last_note.end = note.start
-            last_notes[note.pitch] = note
-            kept.append(note)
-        self.notes = kept
 
 
 # ==================================================================================

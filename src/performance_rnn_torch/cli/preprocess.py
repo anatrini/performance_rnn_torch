@@ -1,10 +1,4 @@
-"""
-`prnn preprocess`: MIDI files to training data.
-
-This command preprocesses MIDI files into a format suitable for training
-the PerformanceRNN model. It converts MIDI files into sequences of events
-and control sequences.
-"""
+"""`prnn preprocess`: MIDI files to training data (events and controls, .npz)."""
 
 import hashlib
 import os
@@ -18,7 +12,7 @@ from performance_rnn_torch.core.sequence import save_processed as write_processe
 from performance_rnn_torch.utils import helpers, paths
 from performance_rnn_torch.utils.logger import setup_logger
 
-logger = setup_logger('Preprocess logger')
+logger = setup_logger('preprocess')
 
 # ========================================================================
 # Settings
@@ -31,10 +25,10 @@ Examples:
   prnn preprocess
 
   # Use 4 worker processes instead of all CPU cores
-  prnn preprocess --num_workers 4
+  prnn preprocess --num-workers 4
 
   # Custom paths
-  prnn preprocess --midi_root custom/midi/ --save_dir custom/processed/
+  prnn preprocess --midi-root custom/midi/ --save-dir custom/processed/
 """
 
 
@@ -42,7 +36,7 @@ def add_arguments(parser):
 
     parser.add_argument(
         '-m',
-        '--midi_root',
+        '--midi-root',
         dest='midi_root',
         type=str,
         default=str(paths.midi_dir),
@@ -51,7 +45,7 @@ def add_arguments(parser):
 
     parser.add_argument(
         '-s',
-        '--save_dir',
+        '--save-dir',
         dest='save_dir',
         type=str,
         default=str(paths.processed_dir),
@@ -60,7 +54,7 @@ def add_arguments(parser):
 
     parser.add_argument(
         '-w',
-        '--num_workers',
+        '--num-workers',
         dest='num_workers',
         default=-1,
         type=int,
@@ -79,7 +73,11 @@ def preprocess_midi(path):
 
 
 def preprocess_midi_files_under(midi_root, save_dir, num_workers):
-    midi_paths = list(helpers.find_files_by_extensions(midi_root, ['.mid', '.midi']))
+    if not Path(midi_root).is_dir():
+        raise FileNotFoundError(f'no folder {midi_root}: put the MIDI files there, or run `prnn prepare`')
+    midi_paths = sorted(helpers.find_files_by_extensions(midi_root, ['.mid', '.midi']))
+    if not midi_paths:
+        raise ValueError(f'no MIDI files (.mid, .midi) in {midi_root}')
     midi_root = Path(midi_root).resolve()  # Get absolute path
     save_dir = Path(save_dir).resolve()
 
@@ -118,9 +116,10 @@ def save_processed(path, data, midi_root, save_dir):
 
     target_dir.mkdir(parents=True, exist_ok=True)
 
-    # Save with hash to avoid name collisions
+    # A hash of the path inside midi_root avoids name collisions and gives the
+    # same file name again when the folder is moved
     name = path.stem  # filename without extension
-    code = hashlib.md5(str(path).encode()).hexdigest()
+    code = hashlib.md5(relative_path.as_posix().encode()).hexdigest()
     save_path = target_dir / f'{name}-{code}.npz'
 
     write_processed(save_path, *data)

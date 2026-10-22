@@ -10,12 +10,14 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
+        python: ['3.12', '3.13']
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: true
+          python-version: ${{ matrix.python }}
       - name: Install (Python, dependencies and extras from uv.lock)
         run: uv sync --locked --all-extras
       - name: Lint

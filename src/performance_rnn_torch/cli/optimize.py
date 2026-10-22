@@ -23,9 +23,12 @@ Examples:
   prnn optimize --n-trials 100
 
 Each trial trains a new model with a different combination of model size,
-dropout, batch size, number of epochs, window, stride, learning rate,
-control ratio and teacher forcing ratio. Only the best trial's checkpoint is
-kept, in models/optimization/, with its hyperparameters in best-params.json.
+dropout, batch size, stride and learning rate, until early stopping or the
+default number of epochs. The window, the transposition and the share of
+batches with controls stay at their defaults: they change what the validation
+loss measures, so trials with different values could not be compared. Only
+the best trial's checkpoint is kept, in models/optimization/, with its
+hyperparameters in best-params.json.
 """
 
 
@@ -77,20 +80,15 @@ def objective(
     """
     model_config = replace(
         model_config,
-        init_dim=trial.suggest_categorical('init_dim', [32, 64]),
         hidden_dim=trial.suggest_categorical('hidden_dim', [256, 512, 1024]),
-        gru_layers=trial.suggest_int('gru_layers', 2, 5),
+        gru_layers=trial.suggest_int('gru_layers', 2, 4),
         gru_dropout=trial.suggest_float('gru_dropout', 0.0, 0.5),
     )
     cfg = replace(
         train_config,
-        batch_size=trial.suggest_categorical('batch_size', [16, 32, 64, 128]),
-        num_epochs=trial.suggest_categorical('num_epochs', [5, 10, 25, 50]),
-        window_size=trial.suggest_categorical('window_size', [50, 100, 200]),
-        stride_size=trial.suggest_categorical('stride_size', [5, 10, 20, 50]),
-        learning_rate=trial.suggest_float('learning_rate', 1e-5, 1e-2, log=True),
-        control_ratio=trial.suggest_float('control_ratio', 0.1, 1.0),
-        teacher_forcing_ratio=trial.suggest_float('teacher_forcing_ratio', 0.1, 1.0),
+        batch_size=trial.suggest_categorical('batch_size', [32, 64, 128]),
+        stride_size=trial.suggest_categorical('stride_size', [64, 128, 256]),
+        learning_rate=trial.suggest_float('learning_rate', 1e-4, 3e-3, log=True),
     )
 
     model = PerformanceRNN(**vars(model_config)).to(device)

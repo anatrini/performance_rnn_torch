@@ -60,7 +60,7 @@ def test_prepare_copies_one_composer(project):
     rows = [
         ('Johann Sebastian Bach', '2004/bach1.midi'),
         ('Johann Sebastian Bach', '2006/bach2.midi'),
-        ('Claude Debussy', '2004/debussy.midi'),
+        ('Frédéric Chopin', '2004/chopin.midi'),
     ]
     maestro.mkdir()
     with open(maestro / 'maestro-v3.0.0.csv', 'w', newline='') as f:

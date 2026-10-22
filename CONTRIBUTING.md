@@ -29,9 +29,12 @@ src/performance_rnn_torch/
   core/data.py         the dataset and its batches
   training/            training loop, checkpoints, early stopping
   generation.py        controls for generation, writing MIDI files
+  server.py            real-time play over OSC (prnn serve)
   config.py            default settings
   cli/                 the prnn command, one module per subcommand
+  utils/               working folders, logging, file helpers
 tests/
+examples/              patches for Max and for Pd and plugdata
 ```
 
 ## Conventions

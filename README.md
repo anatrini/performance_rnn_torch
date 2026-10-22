@@ -82,7 +82,7 @@ uv run prnn generate
 |---|---|---|
 | `prnn prepare` | copies the MIDI files of one composer from MAESTRO to `data/midi/<composer>/` | `--list`, `--composer`, `--maestro-dir`, `--output` |
 | `prnn preprocess` | MIDI files to training data (`.npz`), keeping the folder structure | `-m` MIDI folder, `-s` output folder, `-w` worker processes |
-| `prnn train` | trains a model, or continues one | `-S` checkpoint, `-d` data, `-M` model settings, `-e` epochs, `-b` batch size, `-T` transposition |
+| `prnn train` | trains a model, or continues one | `-S` checkpoint, `-d` data, `-M` model settings, `-e` epochs, `-b` batch size, `-w` window |
 | `prnn generate` | writes MIDI files with a trained model | `-s` checkpoint, `-l` length, `-T` temperature, `-c` controls, `-k`/`-p` top-k/top-p, `-B` beam search |
 | `prnn optimize` | searches hyperparameters with Optuna | `-n` trials |
 | `prnn serve` | plays a model in real time, controlled over OSC from Max or Pd | `-s` checkpoint, `--port`, `--send-port`, `--lookahead` |
@@ -118,7 +118,7 @@ The model learns to continue a performance in a way that matches the controls; a
 
 A stack of GRU layers reads the previous event and the controls, and gives the probability of every possible next event. During training the true previous events are the input; the loss is the cross entropy of the predicted events.
 
-The defaults are Magenta's: **3 layers of 512 units, no dropout, batches of 64**, gradient norm clipped at 3, learning rate 0.001. They suit a large dataset such as MAESTRO and a GPU.
+The defaults are Magenta's: **3 layers of 512 units, no dropout, batches of 64 windows of 512 events**, gradient norm clipped at 3, learning rate 0.001, every batch transposed by a random interval of up to 3 semitones, and half of the batches without the controls, so that the model also plays when it is given none (Magenta's "optional conditioning"). They suit a large dataset such as MAESTRO and a GPU.
 
 **If training is too slow** on your computer, use a smaller model and smaller batches:
 
@@ -134,19 +134,24 @@ uv run prnn train -M "gru_dropout=0.3"
 
 Other useful options of `prnn train`:
 
-- `-T` transposes every batch by a random interval (−6 to +5 semitones): more variety from the same files.
-- `-w` events per training window (default 100), `-e` epochs (default 15), `-p` early stopping after so many epochs without improvement (default 5).
+- `-w` events per training window (default 512) and `-s` events between the starts of two windows (default 64): an epoch shows every event to the model about 512 / 64 = 8 times. Files shorter than a window are not used; with short pieces, lower `-w`.
+- `-e` epochs (default 50, an upper limit) and `-p` early stopping after so many epochs without improvement (default 5).
+- `--no-transposition` turns the transposition off; `-c` sets the share of batches trained with the controls (default 0.5).
 - `-f` teacher forcing ratio: below 1, some steps receive the model's own prediction instead of the true event (scheduled sampling); slower.
 
-The best model (lowest validation loss) is saved to the checkpoint, the most recent state next to it as `<name>-last.sess`. Running the same command again continues the training. Training curves, if TensorBoard is installed:
+The best model (lowest validation loss) is saved to the checkpoint, the most recent state next to it as `<name>-last.sess`. Running the same command again continues the training from the best model, and replaces it only with a better one. Every run writes its messages, the validation losses included, to `logs/`. Training curves, if TensorBoard is installed:
 
 ```bash
 uv run tensorboard --logdir runs
 ```
 
-An example, on the 144 Bach pieces of MAESTRO with transposition (`-T`), on an M1 Pro: with these defaults the best validation loss was 2.43, after 3 epochs (25 minutes); then the model began to learn the training files by heart. With `-M "gru_dropout=0.3"` it kept improving until epoch 9 and reached 2.35, in about 70 minutes. That second model is attached to the [release](https://github.com/anatrini/performance_rnn_torch/releases/latest) as `bach.sess`.
+**Reading the validation loss.** The loss is the average uncertainty about the next event, in nats: 5.96 would mean a random choice among the 388 events, and 4.57 is what the frequency of each event alone gives on the Bach pieces of MAESTRO. Timing and loudness can never be predicted exactly, so even the best published models stay close to 2: on the whole MAESTRO-like Piano-e-Competition data, Magenta's Performance RNN (3 LSTM layers of 1024 units) reaches 1.97 and the Music Transformer 1.84 (Huang et al., 2018, table 3). The validation windows do not overlap, and the first events of each window are predicted without context, so longer windows give a lower loss: compare only models validated with the same `-w`.
 
-**Hyperparameter search.** `uv run prnn optimize -n 20` trains 20 models with different sizes, dropout, batch sizes, windows and learning rates, and keeps the best one in `models/optimization/` with its settings in `best-params.json`. It takes hours.
+On an M1 Pro, an epoch on the 101 training pieces of Bach takes about 5.5 minutes with the defaults.
+
+**Differences from Magenta.** Magenta's training data are 30-second pieces of the performances, of at most 512 events, each also stretched in time by ±2.5 and ±5 %, and 10 % of them are held out for validation. Here the windows are cut from whole performances, there is no time stretching, and 30 % of the files are held out (`-r`), because a single composer gives few files.
+
+**Hyperparameter search.** `uv run prnn optimize -n 20` trains 20 models with different sizes, dropout, batch sizes, strides and learning rates, and keeps the best one in `models/optimization/` with its settings in `best-params.json`. The window, the transposition and the share of batches with controls keep their defaults, so that the validation losses of the trials can be compared. Each trial is a full training: on a laptop the search takes days.
 
 ## Generating
 
@@ -163,7 +168,7 @@ uv run prnn generate -c data/processed/johann_sebastian_bach/<piece>.npz -l 0
 
 - **Temperature** `-T`: below 1 the model prefers its most likely choices, above 1 it takes more risks.
 - **Top-k** `-k` and **top-p** `-p`: sample only among the most likely events, e.g. `-p 0.95`.
-- **Controls** `-c`: `"HISTOGRAM;DENSITY"`, twelve weights for C to B and a density class 0–7; `";3"` gives all pitch classes the same weight. A preprocessed file gives a control for every event.
+- **Controls** `-c`: `"HISTOGRAM;DENSITY"`, twelve weights for C to B and a density class 0–7; `";3"` gives all pitch classes the same weight. A preprocessed file gives a control for every event. Without `-c` the model plays without controls.
 - **Beam search** `-B 5`: keeps the 5 most likely continuations and writes the best; more conservative.
 - `--seed 1` gives the same result every time.
 
@@ -192,7 +197,7 @@ uv run prnn serve -s models/bach.sess
 
 Changes of the controls are heard after about half a second (`--lookahead`): the server generates that far ahead, so that it never falls behind. It runs on the CPU, which generates more than ten times faster than a performance needs.
 
-**Example patches.** [`examples/max/prnn-serve.maxpat`](examples/max/prnn-serve.maxpat) and, for Pd and plugdata, [`examples/pd/prnn-serve.pd`](examples/pd/prnn-serve.pd) start the server with the [spawn](https://github.com/anatrini/spawn) object, send the controls and play the notes: in Max through `noteout`, in Pd through `noteout` and a small built-in synthesizer. They expect the model at `models/bach.sess` in the repository: train one, or download `bach.sess` from the [latest release](https://github.com/anatrini/performance_rnn_torch/releases/latest) into `models/`. Change the message in section 1 for another model. Closing the patch, or quitting Max or Pd, ends the server.
+**Example patches.** [`examples/max/prnn-serve.maxpat`](examples/max/prnn-serve.maxpat) and, for Pd and plugdata, [`examples/pd/prnn-serve.pd`](examples/pd/prnn-serve.pd) start the server with the [spawn](https://github.com/anatrini/spawn) object, send the controls and play the notes: in Max through `noteout`, in Pd through `noteout` and a small built-in synthesizer. They expect the model at `models/bach.sess` in the repository: train one, or download `bach.sess` from the [latest release](https://github.com/anatrini/performance_rnn_torch/releases/latest) into `models/`. The model of release 2.0.0 was always trained with the controls: it also plays without them (`/controls 0`), but less well than a model trained with the current defaults. Change the message in section 1 for another model. Closing the patch, or quitting Max or Pd, ends the server.
 
 ## Using it from Python
 

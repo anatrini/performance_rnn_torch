@@ -11,7 +11,7 @@ import torch
 from torch import nn
 from tqdm import tqdm
 
-from performance_rnn_torch.config import ModelConfig, TrainConfig
+from performance_rnn_torch.config import MAX_TRANSPOSITION, ModelConfig, TrainConfig
 from performance_rnn_torch.core import Dataset, PerformanceRNN
 from performance_rnn_torch.training.checkpoint import load_checkpoint, save_checkpoint
 from performance_rnn_torch.training.early_stopping import EarlyStopping
@@ -34,12 +34,24 @@ def last_session_path(sess_path) -> Path:
     return sess_path.with_name(f'{sess_path.stem}-last{sess_path.suffix}')
 
 
+# settings that change what the validation loss measures: a checkpoint's best
+# loss is comparable only when they are the same
+VALIDATION_SETTINGS = ('window_size', 'train_test_ratio', 'seed', 'control_ratio')
+
+
 def load_session(
-    sess_path, model_config: ModelConfig, device: torch.device, learning_rate: float, reset_optimizer: bool = False
-) -> tuple[PerformanceRNN, torch.optim.Optimizer, ModelConfig]:
+    sess_path,
+    model_config: ModelConfig,
+    device: torch.device,
+    learning_rate: float,
+    reset_optimizer: bool = False,
+    train_config: TrainConfig | None = None,
+) -> tuple[PerformanceRNN, torch.optim.Optimizer, ModelConfig, float]:
     """Continue the training saved in sess_path, or start a new model.
 
-    An existing checkpoint keeps its own model configuration.
+    An existing checkpoint keeps its own model configuration. Also returns the
+    best validation loss of the checkpoint, the one a continued training has to
+    beat; inf for a new model, or when train_config validates differently.
     """
     sess_path = Path(sess_path)
     state = load_checkpoint(sess_path, device) if sess_path.exists() else None
@@ -58,13 +70,23 @@ def load_session(
         logger.info(f'Session loaded from {sess_path}')
     else:
         logger.info('New session')
-    return model, optimizer, model_config
+
+    best_val_loss = math.inf
+    if state is not None and state.get('best_val_loss') is not None:
+        saved_cfg = state.get('train_config') or {}
+        if train_config is None or all(saved_cfg.get(k) == getattr(train_config, k) for k in VALIDATION_SETTINGS):
+            best_val_loss = float(state['best_val_loss'])
+            logger.info(f'Best validation loss so far: {best_val_loss:.4f}')
+        else:
+            logger.info('The validation settings changed: the best model is chosen again from now on')
+    return model, optimizer, model_config, best_val_loss
 
 
 def load_dataset(data_path) -> Dataset:
     """Load the preprocessed files (.npz) under data_path."""
     dataset = Dataset(str(data_path), verbose=True)
-    assert len(dataset.samples) > 0, f'No preprocessed files in {data_path}: run `prnn preprocess`'
+    if not dataset.samples:
+        raise ValueError(f'no preprocessed files in {data_path}: run `prnn preprocess`')
     return dataset
 
 
@@ -74,32 +96,50 @@ def batch_loss(
     controls: torch.Tensor | None,
     init: torch.Tensor,
     teacher_forcing_ratio: float = 1.0,
+    reduction: str = 'mean',
 ) -> torch.Tensor:
-    """Cross entropy of every predicted event of a batch [window, batch]."""
+    """Cross entropy (nats per event) of every predicted event of a batch [window, batch]."""
     logits = model(events, controls, init, teacher_forcing_ratio)
-    return nn.functional.cross_entropy(logits.reshape(-1, logits.shape[-1]), events.reshape(-1))
+    return nn.functional.cross_entropy(logits.reshape(-1, logits.shape[-1]), events.reshape(-1), reduction=reduction)
 
 
 def evaluate(model: PerformanceRNN, data: Dataset, cfg: TrainConfig, device: torch.device, seed: int = 0) -> float:
     """
-    Mean loss on held-out data: no dropout, no gradients, true previous events
-    as input, the same initial states at every call.
+    Mean loss per event on held-out data: no dropout, no gradients, true
+    previous events as input, the same initial states at every call.
+
+    Every validation event is counted once: the windows of cfg.window_size do
+    not overlap, whatever the training stride, and the last smaller batch is
+    kept. As in training, a share cfg.control_ratio of the loss is measured
+    with the controls and the rest without them.
 
     Returns:
-        float: Mean validation loss (inf when the data give no complete batch)
+        float: Mean validation loss (inf when no file is as long as a window)
     """
+    weights = [(cfg.control_ratio, True), (1.0 - cfg.control_ratio, False)]
     was_training = model.training
     model.eval()
-    generator = torch.Generator().manual_seed(seed)
-    losses = []
+    result = 0.0
     with torch.no_grad():
-        for events, controls in data.batches(cfg.batch_size, cfg.window_size, cfg.stride_size, shuffle=False):
-            events = torch.as_tensor(events, device=device)
-            controls = torch.as_tensor(controls, device=device)
-            init = torch.randn(events.shape[1], model.init_dim, generator=generator).to(device)
-            losses.append(batch_loss(model, events, controls, init).item())
+        for weight, with_controls in weights:
+            if weight <= 0:
+                continue
+            generator = torch.Generator().manual_seed(seed)
+            total, count = 0.0, 0
+            for events, controls in data.batches(
+                cfg.batch_size, cfg.window_size, cfg.window_size, shuffle=False, drop_last=False
+            ):
+                events = torch.as_tensor(events, device=device)
+                controls = torch.as_tensor(controls, device=device) if with_controls else None
+                init = torch.randn(events.shape[1], model.init_dim, generator=generator).to(device)
+                total += batch_loss(model, events, controls, init, reduction='sum').item()
+                count += events.numel()
+            if count == 0:
+                result = math.inf
+                break
+            result += weight * total / count
     model.train(was_training)
-    return float(np.mean(losses)) if losses else math.inf
+    return result
 
 
 def train_model(
@@ -110,13 +150,15 @@ def train_model(
     model_config: ModelConfig,
     sess_path,
     device: torch.device,
+    best_val_loss: float = math.inf,
 ) -> float:
     """
     Train the model.
 
     The model with the lowest validation loss is saved to sess_path; the most
     recent state is saved next to it with '-last' (every cfg.saving_interval
-    seconds, at the end, and on ctrl-C).
+    seconds, at the end, and on ctrl-C). best_val_loss is the loss to beat,
+    when a checkpoint is continued.
 
     Returns:
         float: Lowest validation loss (inf if no validation batch was available)
@@ -130,17 +172,25 @@ def train_model(
         except ImportError:
             logger.warning('TensorBoard is not installed (uv sync --extra tensorboard): logging disabled')
 
-    early_stopping = EarlyStopping(cfg.early_stopping_patience) if cfg.early_stopping_patience > 0 else None
+    early_stopping = (
+        EarlyStopping(cfg.early_stopping_patience, best=best_val_loss) if cfg.early_stopping_patience > 0 else None
+    )
 
     train_data, test_data = dataset.train_test_split(cfg.train_test_ratio, seed=cfg.seed)
     logger.info(f'Training on {len(train_data.samples)} files, validating on {len(test_data.samples)}')
-    if test_data.get_length(cfg.batch_size, cfg.window_size, cfg.stride_size) == 0:
-        logger.warning(
-            'The validation files are too short for one batch: no validation loss, the best model cannot be chosen'
+    for name, data in (('training', train_data), ('validation', test_data)):
+        short = data.num_short_files(cfg.window_size)
+        if short:
+            logger.warning(f'{short} {name} file(s) shorter than {cfg.window_size} events are not used (see -w)')
+    if train_data.get_length(cfg.batch_size, cfg.window_size, cfg.stride_size) == 0:
+        raise ValueError(
+            f'the training files give no batch of {cfg.batch_size} windows of {cfg.window_size} events: '
+            'use more files, or smaller -b, -w or -s'
         )
+    if test_data.get_length(cfg.batch_size, cfg.window_size, cfg.window_size, drop_last=False) == 0:
+        logger.warning('No validation file is as long as a window: no validation loss, the best model cannot be chosen')
 
     last_path = last_session_path(sess_path)
-    best_val_loss = math.inf
     epoch = step = 0
     last_saving_time = time.time()
     model.train()
@@ -159,7 +209,7 @@ def train_model(
 
             for events, controls in pbar:
                 if cfg.use_transposition:
-                    offset = np.random.randint(-6, 6)
+                    offset = np.random.randint(-MAX_TRANSPOSITION, MAX_TRANSPOSITION + 1)
                     events, controls = helpers.transposition(events, controls, offset)
 
                 events = torch.as_tensor(events, device=device)

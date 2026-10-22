@@ -15,7 +15,7 @@ from pathlib import Path
 from performance_rnn_torch.utils import paths
 from performance_rnn_torch.utils.logger import setup_logger
 
-logger = setup_logger('prepare_data', file=False)
+logger = setup_logger('prepare')
 
 
 def read_maestro_csv(maestro_dir: Path) -> list[dict]:
@@ -29,16 +29,14 @@ def find_maestro_dataset() -> Path | None:
     Find the Maestro dataset directory.
 
     Searches in:
-    1. data/maestro-v3.0.0/ (standard location)
-    2. Current directory
+    1. data/maestro-v3.0.0/ (or PERFORMANCE_RNN_MAESTRO_DIR)
+    2. maestro-v3.0.0/ in the current directory
 
     Returns:
         Path to maestro directory, or None if not found
     """
-    project_root = paths.project_root
-
     possible_locations = [
-        project_root / "data" / "maestro-v3.0.0",
+        paths.maestro_dir,
         Path.cwd() / "maestro-v3.0.0",
     ]
 
@@ -164,8 +162,8 @@ Examples:
   # List all available composers
   prnn prepare --list
 
-  # Extract all pieces by Claude Debussy
-  prnn prepare --composer "Claude Debussy"
+  # Extract all pieces by Frédéric Chopin
+  prnn prepare --composer "Frédéric Chopin"
 
   # Extract to custom directory
   prnn prepare --composer "Franz Schubert" --output custom_dir/

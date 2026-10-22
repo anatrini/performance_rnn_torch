@@ -1,8 +1,10 @@
 """
 Centralized path configuration for the Performance RNN project.
 
-This module provides a single source of truth for all paths used throughout the project,
-with support for environment variable overrides and automatic directory creation.
+All working folders follow PERFORMANCE_RNN_HOME (or the current directory); each
+one can also be set on its own with an environment variable, e.g.
+PERFORMANCE_RNN_MODELS_DIR or PERFORMANCE_RNN_MAESTRO_DIR. The commands create
+the folders they write to.
 """
 
 import os
@@ -23,18 +25,6 @@ def get_project_root() -> Path:
     return Path(home).resolve() if home else Path.cwd().resolve()
 
 
-def get_package_root() -> Path:
-    """
-    Get the root directory of the performance_rnn_torch package.
-
-    Returns:
-        Path: Absolute path to the package root directory.
-    """
-    # This file is in performance_rnn_torch/utils/paths.py
-    # So we go up one level to get to the package root
-    return Path(__file__).parent.parent.resolve()
-
-
 class ProjectPaths:
     """
     Manages all paths used in the project with environment variable support.
@@ -50,11 +40,6 @@ class ProjectPaths:
     def project_root(self) -> Path:
         """Root directory of the project, read at every use (it follows the current directory)."""
         return get_project_root()
-
-    @property
-    def package_root(self) -> Path:
-        """Root directory of the performance_rnn_torch package."""
-        return get_package_root()
 
     def _get_path(self, env_var: str, default: Path) -> Path:
         """
@@ -123,7 +108,7 @@ class ProjectPaths:
         Get the path for a model checkpoint file.
 
         Args:
-            session_name: Name of the model session (e.g., 'train', 'debussy')
+            session_name: Name of the model session (e.g., 'train', 'bach')
 
         Returns:
             Path: Full path to the model checkpoint file

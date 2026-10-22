@@ -11,10 +11,10 @@ class EarlyStopping:
     """Stop when the validation loss has not improved by more than delta for
     `patience` epochs in a row."""
 
-    def __init__(self, patience: int, delta: float = 0.0):
+    def __init__(self, patience: int, delta: float = 0.0, best: float = math.inf):
         self.patience = patience
         self.delta = delta
-        self.best = math.inf
+        self.best = best  # the loss to beat, when a training is continued
         self.counter = 0
         self.early_stop = False
 

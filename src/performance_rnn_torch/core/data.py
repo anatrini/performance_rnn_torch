@@ -14,12 +14,13 @@ class Dataset:
     """Preprocessed performances, kept compact in memory.
 
     Events are stored as uint16 and controls as a density class and a
-    histogram in uint8 (13 bytes per event instead of 80 for float32 vectors);
-    the control vectors are rebuilt batch by batch.
+    histogram in uint8 (15 bytes per event instead of 88 for an int64 event and
+    a float32 control vector); the control vectors are rebuilt batch by batch.
     """
 
     def __init__(self, root: str, verbose: bool = False):
-        assert os.path.isdir(root), root
+        if not os.path.isdir(root):
+            raise FileNotFoundError(f'no folder {root}')
         paths = sorted(helpers.find_files_by_extensions(root, ['.npz']))
         if verbose:
             paths = tqdm(paths, desc=root)
@@ -80,28 +81,41 @@ class Dataset:
         return np.concatenate(starts) if starts else np.zeros(0, dtype=np.int64)
 
     def batches(
-        self, batch_size: int, window_size: int, stride_size: int, shuffle: bool = True
+        self,
+        batch_size: int,
+        window_size: int,
+        stride_size: int,
+        shuffle: bool = True,
+        drop_last: bool = True,
     ) -> Iterator[tuple[np.ndarray, np.ndarray]]:
-        """Batches of windows: events [window_size, batch_size] (int64) and
-        controls [window_size, batch_size, control_dim] (float32).
+        """Batches of windows: events [window_size, batch] (int64) and
+        controls [window_size, batch, control_dim] (float32).
 
-        The last windows that do not fill a whole batch are left out.
+        Files shorter than window_size give no window. With drop_last, the last
+        windows that do not fill a whole batch are left out; otherwise they
+        form a smaller last batch.
         """
         starts = self._windows(window_size, stride_size)
         if shuffle:
             starts = np.random.permutation(starts)
         steps = np.arange(window_size)
-        for first in range(0, len(starts) - batch_size + 1, batch_size):
+        end = len(starts) - batch_size + 1 if drop_last else len(starts)
+        for first in range(0, max(end, 0), batch_size):
             index = (starts[first : first + batch_size, None] + steps).T  # [window, batch]
             events = self.events[index].astype(np.int64)
             controls = ControlSeq.recover_compressed_arrays(
                 self.density[index].reshape(-1), self.histogram[index].reshape(-1, 12)
             )
-            yield events, controls.reshape(window_size, batch_size, -1)
+            yield events, controls.reshape(window_size, index.shape[1], -1)
 
-    def get_length(self, batch_size: int, window_size: int, stride_size: int) -> int:
+    def get_length(self, batch_size: int, window_size: int, stride_size: int, drop_last: bool = True) -> int:
         """Number of batches that batches() yields."""
-        return len(self._windows(window_size, stride_size)) // batch_size
+        windows = len(self._windows(window_size, stride_size))
+        return windows // batch_size if drop_last else -(-windows // batch_size)
+
+    def num_short_files(self, window_size: int) -> int:
+        """Files shorter than window_size, which give no window."""
+        return sum(seqlen < window_size for seqlen in self.seqlens)
 
     def __repr__(self):
         return f'Dataset(root="{self.root}", samples={len(self.samples)}, avglen={self.avglen})'

@@ -2,7 +2,7 @@
 
 import argparse
 
-from performance_rnn_torch.config import ModelConfig, TrainConfig, default_device
+from performance_rnn_torch.config import MAX_TRANSPOSITION, ModelConfig, TrainConfig, default_device
 from performance_rnn_torch.training import load_dataset, load_session, set_seed, train_model
 from performance_rnn_torch.utils import paths
 from performance_rnn_torch.utils.logger import setup_logger
@@ -13,10 +13,11 @@ Examples:
   # train models/train.sess on data/processed/, or continue it if it exists
   prnn train
 
-  # saved as models/bach.sess, with random transposition
-  prnn train -S models/bach.sess -T
+  # saved as models/bach.sess, with dropout (advisable with a few hundred files or less)
+  prnn train -S models/bach.sess -M "gru_dropout=0.3"
 
-The defaults are Magenta's (3 layers of 512 units, batches of 64). If
+The defaults are Magenta's (3 layers of 512 units, batches of 64, windows of
+512 events, transposition, half of the batches without controls). If
 training is too slow on your computer, use a smaller model:
   prnn train -M "hidden_dim=256,gru_layers=2" -b 32
 If the validation loss rises while the training loss falls (too few files),
@@ -87,7 +88,8 @@ def add_arguments(parser):
         dest='stride_size',
         type=int,
         default=DEFAULTS.stride_size,
-        help='Events between the starts of two windows (default: %(default)s)',
+        help='Events between the starts of two training windows; validation windows do not overlap '
+        '(default: %(default)s)',
     )
     parser.add_argument(
         '-r',
@@ -111,7 +113,8 @@ def add_arguments(parser):
         dest='control_ratio',
         type=float,
         default=DEFAULTS.control_ratio,
-        help='Share of batches trained with controls; the others learn to play without them (default: %(default)s)',
+        help='Share of batches trained with controls; the others learn to play without them, '
+        'as with `prnn generate` without -c (default: %(default)s)',
     )
     parser.add_argument(
         '-f',
@@ -133,10 +136,12 @@ def add_arguments(parser):
     )
     parser.add_argument(
         '-T',
-        '--use-transposition',
+        '--transposition',
         dest='use_transposition',
-        action='store_true',
-        help='Transpose every batch by a random interval of -6 to +5 semitones',
+        action=argparse.BooleanOptionalAction,
+        default=DEFAULTS.use_transposition,
+        help=f'Transpose every batch by a random interval of -{MAX_TRANSPOSITION} to +{MAX_TRANSPOSITION} '
+        'semitones (--no-transposition to turn it off; default: on)',
     )
     parser.add_argument(
         '-i',
@@ -170,8 +175,13 @@ def main(args):
     set_seed(cfg.seed)
     device = default_device(args.device)
 
-    model, optimizer, model_config = load_session(
-        args.sess_path, ModelConfig().with_params(args.model_params), device, cfg.learning_rate, args.reset_optimizer
+    model, optimizer, model_config, best = load_session(
+        args.sess_path,
+        ModelConfig().with_params(args.model_params),
+        device,
+        cfg.learning_rate,
+        args.reset_optimizer,
+        train_config=cfg,
     )
     logger.info(f'Session: {args.sess_path}, device: {device}')
     logger.info(f'{model_config}')
@@ -180,5 +190,5 @@ def main(args):
     dataset = load_dataset(args.data_path)
     logger.info(dataset)
 
-    best = train_model(model, optimizer, dataset, cfg, model_config, args.sess_path, device)
+    best = train_model(model, optimizer, dataset, cfg, model_config, args.sess_path, device, best)
     logger.info(f'Best validation loss: {best:.4f}, model saved to {args.sess_path}')

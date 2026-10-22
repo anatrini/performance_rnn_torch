@@ -12,7 +12,7 @@ from torch import nn, optim
 
 from performance_rnn_torch.config import GenerateConfig, ModelConfig, TrainConfig
 from performance_rnn_torch.core import Dataset, PerformanceRNN
-from performance_rnn_torch.core.sequence import ControlSeq, EventSeq, NoteSeq
+from performance_rnn_torch.core.sequence import ControlSeq, EventSeq
 from performance_rnn_torch.training import batch_loss, evaluate, last_session_path, load_model, train_model
 from performance_rnn_torch.utils import helpers
 
@@ -154,10 +154,13 @@ def test_split_is_shuffled_and_reproducible():
 # 6 -------------------------------------------------------------------------
 
 
+@pytest.mark.parametrize('drop_last', [True, False])
 @pytest.mark.parametrize('batch, window, stride', [(4, 20, 10), (3, 50, 7), (8, 199, 1)])
-def test_get_length_matches_the_batches(batch, window, stride):
+def test_get_length_matches_the_batches(batch, window, stride, drop_last):
     data = Dataset.from_samples(random_samples(3))
-    assert data.get_length(batch, window, stride) == len(list(data.batches(batch, window, stride)))
+    batches = list(data.batches(batch, window, stride, drop_last=drop_last))
+    assert data.get_length(batch, window, stride, drop_last) == len(batches)
+    assert all(events.shape[0] == window and events.shape[1] <= batch for events, _ in batches)
 
 
 # 7, 15 ---------------------------------------------------------------------
@@ -205,24 +208,6 @@ def test_tensorboard_steps_keep_counting_across_epochs(tmp_path, monkeypatch):
 
 def test_generation_samples_by_default():
     assert GenerateConfig().greedy_ratio == 0.0
-
-
-# 10 ------------------------------------------------------------------------
-
-
-def test_trim_overlapped_notes():
-    seq = NoteSeq(
-        [
-            Note(60, 60, 0.0, 1.0),
-            Note(90, 60, 0.0, 0.5),  # same start: merged
-            Note(70, 60, 0.5, 2.0),
-            Note(70, 60, 1.0, 1.5),  # overlapping: first one cut
-            Note(80, 64, 0.2, 0.4),
-        ]
-    )
-    seq.trim_overlapped_notes()
-    c4 = [(n.start, n.end, n.velocity) for n in seq.notes if n.pitch == 60]
-    assert c4 == [(0.0, 0.5, 90), (0.5, 1.0, 70), (1.0, 1.5, 70)]
 
 
 # 11 ------------------------------------------------------------------------
