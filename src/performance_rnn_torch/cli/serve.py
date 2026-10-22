@@ -58,8 +58,15 @@ def main(args):
     def log(text):
         print(f'prnn serve: {text}', flush=True)
 
-    # spawn and other process managers end a program with SIGTERM: stop the notes first
-    signal.signal(signal.SIGTERM, signal.default_int_handler)
+    # spawn and other process managers end a program with SIGTERM: stop the notes first.
+    # The first signal starts the shutdown; later ones (uv passes it on too) must not interrupt it.
+    def interrupt(signum, frame):
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        raise KeyboardInterrupt
+
+    signal.signal(signal.SIGTERM, interrupt)
+    signal.signal(signal.SIGINT, interrupt)
     log(f'model {args.sess_path} on {device}')
     server.serve(
         model, device, args.port, args.send_host, args.send_port, args.lookahead, args.temperature, args.density, log

@@ -2,7 +2,7 @@
 
 ![score](./imgs/score.png)
 
-[![tests](https://github.com/anatrini/performance_rnn_torch/actions/workflows/tests.yml/badge.svg?branch=dev)](https://github.com/anatrini/performance_rnn_torch/actions/workflows/tests.yml)
+[![tests](https://github.com/anatrini/performance_rnn_torch/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/anatrini/performance_rnn_torch/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A recurrent neural network that plays the piano: it learns from MIDI recordings of pianists and generates new performances note by note, with their timing and dynamics. It follows Magenta's [Performance RNN](https://magenta.tensorflow.org/performance-rnn) (Simon & Oore, 2017): the same event vocabulary, controls and model settings, in PyTorch.
@@ -144,7 +144,7 @@ The best model (lowest validation loss) is saved to the checkpoint, the most rec
 uv run tensorboard --logdir runs
 ```
 
-A model trained with these defaults on the 144 Bach pieces of MAESTRO reached its best validation loss (2.43) after 3 epochs, about 25 minutes on an M1 Pro, and then began to learn the training files by heart; early stopping keeps the best epoch.
+An example, on the 144 Bach pieces of MAESTRO with transposition (`-T`), on an M1 Pro: with these defaults the best validation loss was 2.43, after 3 epochs (25 minutes); then the model began to learn the training files by heart. With `-M "gru_dropout=0.3"` it kept improving until epoch 9 and reached 2.35, in about 70 minutes. That second model is attached to the [release](https://github.com/anatrini/performance_rnn_torch/releases/latest) as `bach.sess`.
 
 **Hyperparameter search.** `uv run prnn optimize -n 20` trains 20 models with different sizes, dropout, batch sizes, windows and learning rates, and keeps the best one in `models/optimization/` with its settings in `best-params.json`. It takes hours.
 
@@ -192,7 +192,7 @@ uv run prnn serve -s models/bach.sess
 
 Changes of the controls are heard after about half a second (`--lookahead`): the server generates that far ahead, so that it never falls behind. It runs on the CPU, which generates more than ten times faster than a performance needs.
 
-**Example patches.** [`examples/max/prnn-serve.maxpat`](examples/max/prnn-serve.maxpat) and, for Pd and plugdata, [`examples/pd/prnn-serve.pd`](examples/pd/prnn-serve.pd) start the server with the [spawn](https://github.com/anatrini/spawn) object, send the controls and play the notes: in Max through `noteout`, in Pd through `noteout` and a small built-in synthesizer. They expect the model at `models/bach.sess` in the repository; change the message in section 1 for another one. Closing the patch, or quitting Max or Pd, ends the server.
+**Example patches.** [`examples/max/prnn-serve.maxpat`](examples/max/prnn-serve.maxpat) and, for Pd and plugdata, [`examples/pd/prnn-serve.pd`](examples/pd/prnn-serve.pd) start the server with the [spawn](https://github.com/anatrini/spawn) object, send the controls and play the notes: in Max through `noteout`, in Pd through `noteout` and a small built-in synthesizer. They expect the model at `models/bach.sess` in the repository: train one, or download `bach.sess` from the [latest release](https://github.com/anatrini/performance_rnn_torch/releases/latest) into `models/`. Change the message in section 1 for another model. Closing the patch, or quitting Max or Pd, ends the server.
 
 ## Using it from Python
 

@@ -16,10 +16,12 @@ A rewrite. Data files and checkpoints of 1.x cannot be used: preprocess the MIDI
 
 ### Added
 
+- **Real-time play over OSC**, `prnn serve`, with example patches for Max and for Pd and plugdata that start the server with the spawn object.
+- A model trained on the Bach pieces of MAESTRO, attached to the release as `bach.sess`.
 - Top-k and top-p sampling (`prnn generate -k`, `-p`).
 - `--seed` and `--device` options; `--logging/--no-logging` for TensorBoard; `--clip-norm`.
 - The best model and the last training state are saved separately; training continues an existing checkpoint with its configuration and optimizer.
-- Tests (67), ruff, GitHub Actions on Linux and macOS.
+- Tests (74), ruff, GitHub Actions on Linux and macOS.
 
 ### Fixed
 
