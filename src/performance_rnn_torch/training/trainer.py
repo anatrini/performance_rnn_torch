@@ -151,13 +151,7 @@ def loss_update(init, window_size, events, event_dim, controls, model, loss_func
     Returns:
         torch.Tensor: Computed loss value
     """
-    outputs = model.generate(
-        init, window_size,
-        events=events[:-1],
-        controls=controls,
-        teacher_forcing_ratio=teacher_forcing_ratio,
-        output_type='logit'
-    )
+    outputs = model(events, controls, init, teacher_forcing_ratio)
 
     assert outputs.shape[:2] == events.shape[:2]
     # Every event counts: there is no padding in the batches.

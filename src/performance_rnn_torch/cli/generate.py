@@ -153,6 +153,18 @@ def add_arguments(parser):
                       default=config.generate['temperature'],
                       help='Parameter to control the randomness in the probability distribution during MIDI event generation')
 
+    parser.add_argument('-k', '--top-k',
+                      dest='top_k',
+                      type=int,
+                      default=config.generate['top_k'],
+                      help='Sample only among the k most likely events (0: all)')
+
+    parser.add_argument('-p', '--top-p',
+                      dest='top_p',
+                      type=float,
+                      default=config.generate['top_p'],
+                      help='Sample only among the most likely events whose probabilities add up to p (1: all)')
+
     parser.add_argument('-z', '--init-zero',
                       dest='init_zero',
                       action='store_true',
@@ -174,14 +186,17 @@ def generate(model,
              model_name,
              use_beam_search,
              beam_size,
-             stochastic_beam_search
+             stochastic_beam_search,
+             top_k=0,
+             top_p=1.0
              ):
 
     with torch.no_grad():
         if use_beam_search:
             outputs = model.beam_search(init, max_len, beam_size, controls=controls, temperature=temperature, stochastic=stochastic_beam_search, verbose=True)
         else:
-            outputs = model.generate(init, max_len, controls=controls, greedy=greedy_ratio, temperature=temperature, verbose=True)
+            outputs = model.generate(init, max_len, controls=controls, greedy=greedy_ratio, temperature=temperature,
+                                     top_k=top_k, top_p=top_p, verbose=True)
 
     outputs = outputs.cpu().numpy().T
 
@@ -290,5 +305,6 @@ def main(args):
     else:
         init = torch.randn(batch_size, model.init_dim, device=device)
 
-    generate(model, init, max_len, controls, greedy_ratio, temperature, output_dir, model_name, use_beam_search, beam_size, stochastic_beam_search)
+    generate(model, init, max_len, controls, greedy_ratio, temperature, output_dir, model_name,
+             use_beam_search, beam_size, stochastic_beam_search, args.top_k, args.top_p)
 

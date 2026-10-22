@@ -109,7 +109,7 @@ def test_loss_counts_every_event_including_index_0():
     events = torch.zeros(10, 2, dtype=torch.long)    # only event 0
     init = torch.zeros(2, cfg['init_dim'])
     loss = loss_update(init, 10, events, cfg['event_dim'], None, model, nn.CrossEntropyLoss(), 1.0)
-    logits = model.generate(init, 10, events=events[:-1], output_type='logit')
+    logits = model(events, None, init)
     expected = nn.functional.cross_entropy(logits.reshape(-1, cfg['event_dim']), events.reshape(-1))
     assert torch.isclose(loss, expected)
 
@@ -131,7 +131,8 @@ def test_split_is_shuffled_and_reproducible():
     data = Dataset.from_samples(samples)
     _, test_a = data.train_test_split(0.3, seed=1)
     _, test_b = data.train_test_split(0.3, seed=1)
-    ids = lambda d: [next(i for i, s in enumerate(samples) if s[0] is e) for e, _ in d.samples]
+    ids = lambda d: [next(i for i, s in enumerate(samples) if np.array_equal(s[0], e))
+                     for e, _, _ in d.samples]
     assert ids(test_a) == ids(test_b)
     assert ids(test_a) != [7, 8, 9]             # not simply the last files
 

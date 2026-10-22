@@ -29,8 +29,8 @@ Examples:
   # Use defaults (reads from data/midi/, saves to data/processed/)
   prnn preprocess
 
-  # Use all available CPU cores
-  prnn preprocess --num_workers -1
+  # Use 4 worker processes instead of all CPU cores
+  prnn preprocess --num_workers 4
 
   # Custom paths
   prnn preprocess --midi_root custom/midi/ --save_dir custom/processed/
@@ -53,9 +53,9 @@ def add_arguments(parser):
 
     parser.add_argument('-w', '--num_workers',
                       dest='num_workers',
-                      default=1,
+                      default=-1,
                       type=int,
-                      help='Number of worker processes (default: 1, use -1 for all CPU cores)')
+                      help='Number of worker processes (default: -1, all CPU cores)')
 
 
 def preprocess_midi(path):

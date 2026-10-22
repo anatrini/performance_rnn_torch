@@ -106,7 +106,7 @@ def add_arguments(parser):
                       dest='teacher_forcing_ratio',
                       type=float,
                       default=config.train['teacher_forcing_ratio'],
-                      help='Ratio for controlling the use of teacher forcing during training. A higher ratio means more often using the true previous output instead of the predicted output from the last time step as input for the current time step')
+                      help='Share of steps that receive the true previous event as input (teacher forcing). 1 is fastest: the whole window runs at once. Below 1, the other steps receive the model\'s own prediction (scheduled sampling), computed step by step and several times slower')
 
     parser.add_argument('-T', '--use-transposition',
                       dest='use_transposition',

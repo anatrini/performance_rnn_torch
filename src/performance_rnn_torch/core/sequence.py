@@ -414,13 +414,17 @@ def save_processed(path, event_seq, control_seq):
                         density=density, histogram=histogram)
 
 
-def load_processed(path):
-    """Events [n] and control vectors [n, 20] of a preprocessed file."""
+def load_processed(path, compressed=False):
+    """Events [n] and control vectors [n, 20] of a preprocessed file.
+
+    With compressed=True: events, density classes and histograms (uint8) as stored.
+    """
     with np.load(path) as data:
         version = int(data['format_version']) if 'format_version' in data else None
         if version != FORMAT_VERSION:
             raise ValueError(f'{path}: format version {version}, expected {FORMAT_VERSION}; '
                              'run `prnn preprocess` again')
-        events = data['events'].astype(np.int64)
-        controls = ControlSeq.recover_compressed_arrays(data['density'], data['histogram'])
-    return events, controls
+        events, density, histogram = data['events'], data['density'], data['histogram']
+    if compressed:
+        return events, density, histogram
+    return events.astype(np.int64), ControlSeq.recover_compressed_arrays(density, histogram)

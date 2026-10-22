@@ -109,7 +109,7 @@ train = {
     'early_stopping_patience': 5,  # Epochs to wait before early stopping
     'use_transposition': False,  # Whether to use data augmentation via transposition
     'control_ratio': 1.0,  # Ratio for control conditioning
-    'teacher_forcing_ratio': 0.5,  # Balanced teaching (1.0 for more guidance)
+    'teacher_forcing_ratio': 1.0,  # 1 = true previous events (fast); below 1 = scheduled sampling (slow)
     'saving_interval': 180  # Saving interval in seconds
 }
 
@@ -124,6 +124,8 @@ generate = {
     'greedy_ratio': 0.0,  # Share of steps that take the most likely event (0 = always sample)
     'beam_size': 0,  # Beam size for beam search (0 = disabled)
     'temperature': 1.0,  # Temperature for probabilistic sampling
+    'top_k': 0,  # Sample among the k most likely events (0 = all)
+    'top_p': 1.0,  # Sample among the events that make up probability p (1 = all)
     'stochastic_beam_search': False,  # Whether to use stochastic beam search
     'init_zero': False  # Whether to initialize with zeros
 }
