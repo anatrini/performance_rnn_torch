@@ -1,87 +1,38 @@
 """
 Performance RNN in PyTorch
-===========================
+==========================
 
-A PyTorch implementation of Google's Performance RNN for generating expressive
-piano performances with dynamics and timing.
+Expressive piano performances with timing and dynamics, after Magenta's
+Performance RNN (Simon & Oore, 2017).
 
-This package provides tools for:
-- Training Performance RNN models on MIDI data
-- Generating new piano performances from trained models
-- Preprocessing MIDI files into training data
-- Hyperparameter optimization
+Example:
+    >>> from performance_rnn_torch import load_model, Control
+    >>> model, config, _ = load_model('models/train.sess')
+    >>> events = model.generate(torch.randn(1, model.init_dim), 1000)
 
-Example usage:
-    >>> from performance_rnn_torch import PerformanceRNN, Dataset, config
-    >>> from performance_rnn_torch.utils import paths
-    >>>
-    >>> # Load a dataset
-    >>> dataset = Dataset(str(paths.processed_dir))
-    >>>
-    >>> # Create a model
-    >>> model = PerformanceRNN(**config.model).to(config.device)
-    >>>
-    >>> # Train the model (see scripts/train.py for full example)
-    >>> # Generate music (see scripts/generate.py for full example)
+The command line tool is `prnn` (see `prnn --help`).
 """
 
 from importlib.metadata import version as _version
 
+from performance_rnn_torch.config import GenerateConfig, ModelConfig, TrainConfig, default_device
+from performance_rnn_torch.core import Control, ControlSeq, Dataset, EventSeq, NoteSeq, PerformanceRNN
+from performance_rnn_torch.training import load_model, save_checkpoint
+
 __version__ = _version('performance-rnn-torch')
-__author__ = 'Alessandro Anatrini'
-__license__ = 'MIT'
-
-# Import configuration
-from performance_rnn_torch import config
-
-# Import core modules
-from performance_rnn_torch.core import (
-    EventSeq,
-    ControlSeq,
-    NoteSeq,
-    Control,
-    PerformanceRNN,
-    Dataset,
-)
-
-# Import training utilities
-from performance_rnn_torch.training import EarlyStopping
-
-# Import utilities
-from performance_rnn_torch.utils import paths
-from performance_rnn_torch.utils.logger import setup_logger
-from performance_rnn_torch.utils.helpers import (
-    find_files_by_extensions,
-    event_indices_to_midi_file,
-    transposition,
-    dict2params,
-    params2dict,
-    compute_gradient_norm,
-)
 
 __all__ = [
-    # Version info
     '__version__',
-    '__author__',
-    '__license__',
-    # Configuration
-    'config',
-    # Core classes
-    'EventSeq',
-    'ControlSeq',
-    'NoteSeq',
     'Control',
-    'PerformanceRNN',
+    'ControlSeq',
     'Dataset',
-    # Training
-    'EarlyStopping',
-    # Utilities
-    'paths',
-    'setup_logger',
-    'find_files_by_extensions',
-    'event_indices_to_midi_file',
-    'transposition',
-    'dict2params',
-    'params2dict',
-    'compute_gradient_norm',
+    'EventSeq',
+    'GenerateConfig',
+    'ModelConfig',
+    'NoteSeq',
+    'PerformanceRNN',
+    'TrainConfig',
+    'default_device',
+    'load_model',
+    'save_checkpoint',
 ]

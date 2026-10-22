@@ -18,8 +18,8 @@ class PerformanceRNN(nn.Module):
     is the input of the first step.
     """
 
-    def __init__(self, event_dim, control_dim, init_dim, hidden_dim,
-                 gru_layers=3, gru_dropout=0.3):
+    def __init__(self, event_dim: int, control_dim: int, init_dim: int, hidden_dim: int,
+                 gru_layers: int = 3, gru_dropout: float = 0.3):
         super().__init__()
 
         self.event_dim = event_dim
@@ -48,12 +48,12 @@ class PerformanceRNN(nn.Module):
 
     # ------------------------------------------------------------------ pieces
 
-    def init_to_hidden(self, init):
+    def init_to_hidden(self, init: torch.Tensor) -> torch.Tensor:
         """[batch, init_dim] -> initial hidden states [gru_layers, batch, hidden_dim]."""
         out = torch.tanh(self.inithid_fc(init))
         return out.view(init.shape[0], self.gru_layers, self.hidden_dim).transpose(0, 1).contiguous()
 
-    def expand_controls(self, controls, steps):
+    def expand_controls(self, controls: torch.Tensor, steps: int) -> torch.Tensor:
         """[1 or steps, batch, control_dim] -> [steps, batch, control_dim]."""
         assert controls.dim() == 3 and controls.shape[2] == self.control_dim
         if controls.shape[0] > 1:
@@ -61,7 +61,7 @@ class PerformanceRNN(nn.Module):
             return controls[:steps]
         return controls.expand(steps, -1, -1)
 
-    def _inputs(self, events, controls):
+    def _inputs(self, events: torch.Tensor, controls: torch.Tensor | None) -> torch.Tensor:
         """Previous events [T, batch] and controls [T, batch, control_dim] or None."""
         steps, batch = events.shape
         x = self.event_embedding(events)
@@ -72,17 +72,19 @@ class PerformanceRNN(nn.Module):
             flag = x.new_zeros(steps, batch, 1)
         return F.leaky_relu(self.concat_input_fc(torch.cat([x, flag, controls], -1)), 0.1)
 
-    def step(self, event, control, hidden):
+    def step(self, event: torch.Tensor, control: torch.Tensor | None,
+             hidden: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """One step: event [1, batch], control [1, batch, control_dim] or None."""
         out, hidden = self.gru(self._inputs(event, control), hidden)
         return self.output_fc(out), hidden
 
-    def _start(self, batch, device):
+    def _start(self, batch: int, device: torch.device) -> torch.Tensor:
         return torch.full((1, batch), self.start_event, dtype=torch.long, device=device)
 
     # ------------------------------------------------------------------ training
 
-    def forward(self, events, controls=None, init=None, teacher_forcing_ratio=1.0):
+    def forward(self, events: torch.Tensor, controls: torch.Tensor | None = None,
+                init: torch.Tensor | None = None, teacher_forcing_ratio: float = 1.0) -> torch.Tensor:
         """Logits [T, batch, event_dim] that predict events[t] from the events before it.
 
         With teacher_forcing_ratio 1 the true previous events are the inputs and
@@ -113,7 +115,8 @@ class PerformanceRNN(nn.Module):
     # ------------------------------------------------------------------ generation
 
     @staticmethod
-    def sample(logits, temperature=1.0, top_k=0, top_p=1.0):
+    def sample(logits: torch.Tensor, temperature: float = 1.0, top_k: int = 0,
+               top_p: float = 1.0) -> torch.Tensor:
         """Draw events from logits [..., event_dim].
 
         top_k keeps the k most likely events, top_p the smallest set whose
@@ -133,8 +136,9 @@ class PerformanceRNN(nn.Module):
         return torch.multinomial(probs.reshape(-1, probs.shape[-1]), 1).view(probs.shape[:-1])
 
     @torch.no_grad()
-    def generate(self, init, steps, controls=None, greedy=0.0, temperature=1.0,
-                 top_k=0, top_p=1.0, verbose=False):
+    def generate(self, init: torch.Tensor, steps: int, controls: torch.Tensor | None = None,
+                 greedy: float = 0.0, temperature: float = 1.0, top_k: int = 0, top_p: float = 1.0,
+                 verbose: bool = False) -> torch.Tensor:
         """Generate events [steps, batch].
 
         greedy: share of steps that take the most likely event instead of sampling.
@@ -159,8 +163,9 @@ class PerformanceRNN(nn.Module):
         return torch.cat(outputs, 0)
 
     @torch.no_grad()
-    def beam_search(self, init, steps, beam_size, controls=None,
-                    temperature=1.0, stochastic=False, verbose=False):
+    def beam_search(self, init: torch.Tensor, steps: int, beam_size: int,
+                    controls: torch.Tensor | None = None, temperature: float = 1.0,
+                    stochastic: bool = False, verbose: bool = False) -> torch.Tensor:
         """The most likely sequences [steps, batch], keeping beam_size candidates.
 
         stochastic adds Gumbel noise to the scores when choosing the candidates.

@@ -1,11 +1,11 @@
 """Dataset class for loading and batching training data."""
 
 import os
+from collections.abc import Iterator
 
 import numpy as np
 from tqdm import tqdm
 
-from performance_rnn_torch import config
 from performance_rnn_torch.utils import helpers
 from performance_rnn_torch.core.sequence import ControlSeq, load_processed
 
@@ -18,7 +18,7 @@ class Dataset:
     the control vectors are rebuilt batch by batch.
     """
 
-    def __init__(self, root, verbose=False):
+    def __init__(self, root: str, verbose: bool = False):
         assert os.path.isdir(root), root
         paths = sorted(helpers.find_files_by_extensions(root, ['.npz']))
         if verbose:
@@ -26,7 +26,7 @@ class Dataset:
         self._set(root, [load_processed(path, compressed=True) for path in paths])
 
     @classmethod
-    def from_samples(cls, samples, root=''):
+    def from_samples(cls, samples: list[tuple[np.ndarray, np.ndarray]], root: str = '') -> 'Dataset':
         """A dataset made of (events [n], controls [n, control_dim]) pairs in memory."""
         dens = ControlSeq.feat_ranges()['note_density']
         hist = ControlSeq.feat_ranges()['pitch_histogram']
@@ -53,7 +53,7 @@ class Dataset:
             self.density = np.concatenate([s[1] for s in self.samples])
             self.histogram = np.concatenate([s[2] for s in self.samples])
 
-    def train_test_split(self, test_size=config.train['train_test_ratio'], seed=0):
+    def train_test_split(self, test_size: float = 0.3, seed: int = 0) -> tuple['Dataset', 'Dataset']:
         """Split by file, in random order: at least one file on each side."""
         n = len(self.samples)
         if n < 2:
@@ -65,13 +65,14 @@ class Dataset:
         train = [self.samples[i] for i in order[num_test:]]
         return Dataset._from_compressed(train, self.root), Dataset._from_compressed(test, self.root)
 
-    def _windows(self, window_size, stride_size):
+    def _windows(self, window_size: int, stride_size: int) -> np.ndarray:
         """Start of every window, as a position in the concatenated arrays."""
         starts = [self.offsets[i] + np.arange(0, seqlen - window_size + 1, stride_size)
                   for i, seqlen in enumerate(self.seqlens) if seqlen >= window_size]
         return np.concatenate(starts) if starts else np.zeros(0, dtype=np.int64)
 
-    def batches(self, batch_size, window_size, stride_size, shuffle=True):
+    def batches(self, batch_size: int, window_size: int, stride_size: int,
+                shuffle: bool = True) -> Iterator[tuple[np.ndarray, np.ndarray]]:
         """Batches of windows: events [window_size, batch_size] (int64) and
         controls [window_size, batch_size, control_dim] (float32).
 
@@ -88,7 +89,7 @@ class Dataset:
                                                             self.histogram[index].reshape(-1, 12))
             yield events, controls.reshape(window_size, batch_size, -1)
 
-    def get_length(self, batch_size, window_size, stride_size):
+    def get_length(self, batch_size: int, window_size: int, stride_size: int) -> int:
         """Number of batches that batches() yields."""
         return len(self._windows(window_size, stride_size)) // batch_size
 

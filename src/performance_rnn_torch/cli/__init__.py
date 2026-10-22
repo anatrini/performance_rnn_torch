@@ -32,5 +32,10 @@ def main(argv=None):
                                       epilog=module.EPILOG,
                                       formatter_class=argparse.RawDescriptionHelpFormatter)
         module.add_arguments(sub)
-        return module.main(sub.parse_args(argv[1:]))
+        args = sub.parse_args(argv[1:])
+        try:
+            return module.main(args)
+        except (FileNotFoundError, ValueError) as error:
+            print(f'prnn {name}: {error}', file=sys.stderr)
+            return 1
     parser.parse_args(argv)

@@ -1,310 +1,87 @@
-"""
-`prnn generate`: write MIDI files with a trained model.
+"""`prnn generate`: write MIDI files with a trained model."""
 
-This command generates MIDI sequences using a trained PerformanceRNN model.
-It supports both standard generation and beam search generation with
-configurable control parameters.
-"""
-import glob
-import numpy as np
-import os
-import re
 import torch
-from pathlib import Path
 
-from performance_rnn_torch import config
+from performance_rnn_torch.config import GenerateConfig, default_device
+from performance_rnn_torch.generation import controls_from_spec, model_name, write_midi_files
+from performance_rnn_torch.training import load_model, set_seed
+from performance_rnn_torch.utils import paths
 from performance_rnn_torch.utils.logger import setup_logger
-from performance_rnn_torch.core import PerformanceRNN
-from performance_rnn_torch.core.sequence import Control, ControlSeq, load_processed
-from performance_rnn_torch.training import check_format
-from performance_rnn_torch.utils import helpers, paths
 
-
-logger = setup_logger('Generator logger')
+logger = setup_logger('generate')
 
 HELP = 'Generate MIDI files with a trained model'
-EPILOG = None
+EPILOG = """
+Examples:
+  # 8 performances of 1000 events with the model models/train.sess
+  prnn generate
 
+  # another model, less random, only C major pitch classes, 2-4 notes per second
+  prnn generate -s models/bach.sess -T 0.9 -c "1,0,1,0,1,1,0,1,0,1,0,1;2"
 
-# ========================================================================
-# Helper Functions
-# ========================================================================
+  # the controls of a preprocessed piece, beam search with 5 candidates
+  prnn generate -c data/processed/bach/piece.npz -B 5
+"""
 
-def get_next_file_number(output_dir, model_name):
-    """
-    Find the next available file number for a given model name.
+DEFAULTS = GenerateConfig()
 
-    Args:
-        output_dir: Directory containing generated MIDI files
-        model_name: Name extracted from the model session file
-
-    Returns:
-        int: Next available number (starts at 1)
-    """
-    if not os.path.exists(output_dir):
-        return 1
-
-    # Find all files matching the pattern: {model_name}_*.mid
-    pattern = os.path.join(output_dir, f"{model_name}_*.mid")
-    existing_files = glob.glob(pattern)
-
-    if not existing_files:
-        return 1
-
-    # Extract numbers from filenames
-    numbers = []
-    for filepath in existing_files:
-        filename = os.path.basename(filepath)
-        # Match pattern: {model_name}_{number}.mid
-        match = re.match(rf"{re.escape(model_name)}_(\d+)\.mid", filename)
-        if match:
-            numbers.append(int(match.group(1)))
-
-    if not numbers:
-        return 1
-
-    # Return next number
-    return max(numbers) + 1
-
-
-def extract_model_name(sess_path):
-    """
-    Extract a meaningful model name from the session path.
-
-    Args:
-        sess_path: Path to the session file (e.g., "models/jsbach_test.sess")
-
-    Returns:
-        str: Model name (e.g., "jsbach_test")
-    """
-    # Get filename without extension
-    sess_path = Path(sess_path)
-    model_name = sess_path.stem  # Removes .sess extension
-
-    # Clean up the name to be filesystem-safe
-    model_name = re.sub(r'[^\w\-_]', '_', model_name)
-
-    return model_name
-
-
-# ========================================================================
-# Settings
-# ========================================================================
 
 def add_arguments(parser):
-    parser.add_argument('-c', '--control',
-                      dest='control',
-                      type=str,
-                      default=None,
-                      help=('control or a processed data file path, '
-                            'e.g., "PITCH_HISTOGRAM;NOTE_DENSITY" like '
-                            '"2,0,1,1,0,1,0,1,1,0,0,1;4", or '
-                            '";3" (which gives all pitches the same probability). '
-                            'NOTE_DENSITY is a class 0-7: fewer than 1, 1-2, 2-4, 4-8, '
-                            '8-16, 16-32, 32-64, 64 or more notes per second. '
-                            'Or a preprocessed file "/path/to/processed/file.npz" '
-                            '(uses control sequence from the given processed data)'))
+    parser.add_argument('-s', '--session', dest='sess_path', default=str(paths.get_model_path('train')),
+                        help='Checkpoint of the trained model (default: %(default)s)')
+    parser.add_argument('-o', '--output-dir', dest='output_dir', default=str(paths.output_dir),
+                        help='Folder of the MIDI files (default: %(default)s)')
+    parser.add_argument('-c', '--control', dest='control', default=None,
+                        help='"PITCH_HISTOGRAM;NOTE_DENSITY", e.g. "2,0,1,1,0,1,0,1,1,0,0,1;4" '
+                             '(";3" gives all pitch classes the same weight). NOTE_DENSITY is a class '
+                             '0-7: fewer than 1, 1-2, 2-4, 4-8, 8-16, 16-32, 32-64, 64 or more notes '
+                             'per second. Or a preprocessed file (.npz), or a folder of them.')
+    parser.add_argument('-b', '--batch-size', dest='batch_size', type=int, default=DEFAULTS.batch_size,
+                        help='Number of performances generated together (default: %(default)s)')
+    parser.add_argument('-l', '--max-length', dest='max_len', type=int, default=DEFAULTS.max_len,
+                        help='Events per performance; 0 = the length of the control file (default: %(default)s)')
+    parser.add_argument('-T', '--temperature', dest='temperature', type=float, default=DEFAULTS.temperature,
+                        help='Below 1 more predictable, above 1 more surprising (default: %(default)s)')
+    parser.add_argument('-k', '--top-k', dest='top_k', type=int, default=DEFAULTS.top_k,
+                        help='Sample only among the k most likely events; 0 = all (default: %(default)s)')
+    parser.add_argument('-p', '--top-p', dest='top_p', type=float, default=DEFAULTS.top_p,
+                        help='Sample only among the most likely events whose probabilities add up '
+                             'to p; 1 = all (default: %(default)s)')
+    parser.add_argument('-g', '--greedy-ratio', dest='greedy_ratio', type=float, default=DEFAULTS.greedy_ratio,
+                        help='Share of steps that take the most likely event (default: %(default)s)')
+    parser.add_argument('-B', '--beam-size', dest='beam_size', type=int, default=DEFAULTS.beam_size,
+                        help='Beam search with this many candidates instead of sampling; 0 = off')
+    parser.add_argument('-S', '--stochastic-beam-search', dest='stochastic_beam_search', action='store_true',
+                        help='Add random noise to the beam search scores')
+    parser.add_argument('-z', '--init-zero', dest='init_zero', action='store_true',
+                        help='Start from a zero hidden state instead of a random one')
+    parser.add_argument('--seed', type=int, default=None, help='Random seed, for repeatable results')
+    parser.add_argument('--device', default='auto', help='auto, cpu, mps or cuda (default: %(default)s)')
 
-    parser.add_argument('-b', '--batch-size',
-                      dest='batch_size',
-                      type=int,
-                      default=config.generate['batch_size'],
-                      help='Number of sesequences to generate in a batch')
-
-    parser.add_argument('-s', '--session',
-                      dest='sess_path',
-                      type=str,
-                      default=str(paths.get_model_path('train')),
-                      help='Path to the session file containing the trained model')
-
-    parser.add_argument('-o', '--output-dir',
-                      dest='output_dir',
-                      type=str,
-                      default=str(paths.output_dir),
-                      help='Directory to save the generated MIDI sequences')
-
-    parser.add_argument('-l', '--max-length',
-                      dest='max_len',
-                      type=int,
-                      default=config.generate['max_len'],
-                      help='Maximum length of the generated sequences')
-
-    parser.add_argument('-g', '--greedy-ratio',
-                      dest='greedy_ratio',
-                      type=float,
-                      default=config.generate['greedy_ratio'],
-                      help='Ratio controlling the balance between choosing the highest probability event (greedy) and exploring other options during MIDI event generation')
-
-    parser.add_argument('-B', '--beam-size',
-                      dest='beam_size',
-                      type=int,
-                      default=config.generate['beam_size'],
-                      help='Size of the beam for beam search')
-
-    parser.add_argument('-S', '--stochastic-beam-search',
-                      dest='stochastic_beam_search',
-                      action='store_true',
-                      default=config.generate['stochastic_beam_search'],
-                      help='Enable stochastic beam search')
-
-    parser.add_argument('-T', '--temperature',
-                      dest='temperature',
-                      type=float,
-                      default=config.generate['temperature'],
-                      help='Parameter to control the randomness in the probability distribution during MIDI event generation')
-
-    parser.add_argument('-k', '--top-k',
-                      dest='top_k',
-                      type=int,
-                      default=config.generate['top_k'],
-                      help='Sample only among the k most likely events (0: all)')
-
-    parser.add_argument('-p', '--top-p',
-                      dest='top_p',
-                      type=float,
-                      default=config.generate['top_p'],
-                      help='Sample only among the most likely events whose probabilities add up to p (1: all)')
-
-    parser.add_argument('-z', '--init-zero',
-                      dest='init_zero',
-                      action='store_true',
-                      default=config.generate['init_zero'],
-                      help='Initialize the hidden state to zero')
-
-
-# ========================================================================
-# Generating
-# ========================================================================
-
-def generate(model,
-             init,
-             max_len,
-             controls,
-             greedy_ratio,
-             temperature,
-             output_dir,
-             model_name,
-             use_beam_search,
-             beam_size,
-             stochastic_beam_search,
-             top_k=0,
-             top_p=1.0
-             ):
-
-    with torch.no_grad():
-        if use_beam_search:
-            outputs = model.beam_search(init, max_len, beam_size, controls=controls, temperature=temperature, stochastic=stochastic_beam_search, verbose=True)
-        else:
-            outputs = model.generate(init, max_len, controls=controls, greedy=greedy_ratio, temperature=temperature,
-                                     top_k=top_k, top_p=top_p, verbose=True)
-
-    outputs = outputs.cpu().numpy().T
-
-    os.makedirs(output_dir, exist_ok=True)
-
-    # Get the starting file number for this batch
-    start_number = get_next_file_number(output_dir, model_name)
-
-    for i, output in enumerate(outputs):
-        # Create filename with model name and incrementing number
-        file_number = start_number + i
-        name = f'{model_name}_{file_number:03d}.mid'
-        path = os.path.join(output_dir, name)
-        n_notes = helpers.event_indices_to_midi_file(output, path)
-        logger.info(f'===> {path} ({n_notes} notes)')
-
-
-
-#========================================================================
-# Main
-#========================================================================
 
 def main(args):
-    sess_path = args.sess_path
-    output_dir = args.output_dir
-    batch_size = args.batch_size
-    max_len = args.max_len
-    greedy_ratio = args.greedy_ratio
-    control = args.control
-    use_beam_search = args.beam_size > 0
-    stochastic_beam_search = args.stochastic_beam_search
-    beam_size = args.beam_size
-    temperature = args.temperature
-    init_zero = args.init_zero
-    device = config.device
+    if args.seed is not None:
+        set_seed(args.seed)
+    device = default_device(args.device)
+    model, _, _ = load_model(args.sess_path, device)
+    controls, description = controls_from_spec(args.control, args.batch_size, device)
 
-    logger.info(f'Session path: {sess_path}')
-    logger.info(f'Output directory: {output_dir}') ### modificala
-    logger.info(f'Batch size: {batch_size}')
-    logger.info(f'Max length: {max_len}')
-    logger.info(f'Greedy ratio: {greedy_ratio}')
-    logger.info(f'Beam size: {beam_size}')
-    logger.info(f'Beam search stochastic: {stochastic_beam_search}')
-    logger.info(f'Controls: {control}')
-    logger.info(f'Temperature: {temperature}')
-    logger.info(f'Init zero: {init_zero}')
-    logger.info(f'Device: {device}')
+    steps = args.max_len
+    if steps == 0 and controls is not None and controls.shape[0] > 1:
+        steps = controls.shape[0]
+    if steps <= 0:
+        raise ValueError('give a length with -l, or a control file whose length is used')
 
-    logger.info('Loading session')
+    logger.info(f'Model {args.sess_path} on {device}; controls: {description}')
+    init = torch.zeros(args.batch_size, model.init_dim, device=device) if args.init_zero \
+        else torch.randn(args.batch_size, model.init_dim, device=device)
 
-    if use_beam_search:
-        greedy_ratio = 'DISABLED'
+    if args.beam_size > 0:
+        events = model.beam_search(init, steps, args.beam_size, controls=controls, temperature=args.temperature,
+                                   stochastic=args.stochastic_beam_search, verbose=True)
     else:
-        beam_size = 'DISABLED'
+        events = model.generate(init, steps, controls=controls, greedy=args.greedy_ratio,
+                                temperature=args.temperature, top_k=args.top_k, top_p=args.top_p, verbose=True)
 
-    assert os.path.isfile(sess_path), f'"{sess_path}" is not a file'
-
-    if control is not None:
-        if os.path.isfile(control) or os.path.isdir(control):
-            if os.path.isdir(control):
-                files = list(helpers.find_files_by_extensions(control, ['.npz']))
-                assert len(files) > 0, f'no file in "{control}"'
-                control = np.random.choice(files)
-            _, controls = load_processed(control)
-            if max_len == 0:
-                max_len = controls.shape[0]
-            controls = torch.tensor(controls, dtype=torch.float32)
-            controls = controls.unsqueeze(1).repeat(1, batch_size, 1).to(device)
-            control = f'control sequence from "{control}"'
-        else:
-            pitch_histogram, note_density = control.split(';')
-            pitch_histogram = list(filter(len, pitch_histogram.split(',')))
-            if len(pitch_histogram) == 0:
-                pitch_histogram = np.ones(12) / 12
-            else:
-                pitch_histogram = np.array(list(map(float, pitch_histogram)))
-                assert pitch_histogram.size == 12
-                assert np.all(pitch_histogram >= 0)
-                pitch_histogram = pitch_histogram / pitch_histogram.sum() \
-                    if pitch_histogram.sum() else np.ones(12) / 12
-            note_density = int(note_density)
-            assert note_density in range(ControlSeq.feat_dims()['note_density']), \
-                f'note density class must be 0-{ControlSeq.feat_dims()["note_density"] - 1}'
-            control = Control(pitch_histogram, note_density)
-            controls = torch.tensor(control.to_array(), dtype=torch.float32)
-            controls = controls.repeat(1, batch_size, 1).to(device)
-            control = repr(control)
-    else:
-        controls = None
-        control = 'NONE'
-
-    assert max_len > 0, 'either max length or control sequence length should be given'
-
-    # Extract model name from session path for file naming
-    model_name = extract_model_name(sess_path)
-    logger.info(f'Model name: {model_name}')
-
-    state = torch.load(sess_path, map_location=device, weights_only=True)
-    check_format(state, sess_path)
-    model = PerformanceRNN(**state['model_config']).to(device)
-    model.load_state_dict(state['model_state'])
-    model.eval()
-    logger.info(model)
-    if init_zero:
-        init = torch.zeros(batch_size, model.init_dim, device=device)
-    else:
-        init = torch.randn(batch_size, model.init_dim, device=device)
-
-    generate(model, init, max_len, controls, greedy_ratio, temperature, output_dir, model_name,
-             use_beam_search, beam_size, stochastic_beam_search, args.top_k, args.top_p)
-
+    for path, notes in write_midi_files(events, args.output_dir, model_name(args.sess_path)):
+        logger.info(f'===> {path} ({notes} notes)')

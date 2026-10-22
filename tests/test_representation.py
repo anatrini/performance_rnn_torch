@@ -9,7 +9,8 @@ from performance_rnn_torch.core import PerformanceRNN
 from performance_rnn_torch.core.sequence import (
     DENSITY_BIN_RANGES, FORMAT_VERSION, ControlSeq, EventSeq, NoteSeq, apply_sustain,
     bin_to_velocity, load_processed, save_processed, velocity_to_bin)
-from performance_rnn_torch.training import check_format, load_session, save_model
+from performance_rnn_torch.config import ModelConfig
+from performance_rnn_torch.training import load_checkpoint, load_session, save_checkpoint
 
 R = EventSeq.feat_ranges()
 ON, OFF, SHIFT, VEL = (R[k].start for k in ('note_on', 'note_off', 'time_shift', 'velocity'))
@@ -215,14 +216,13 @@ def test_files_of_another_version_are_refused(tmp_path):
 
 
 def test_checkpoints_carry_the_format_version(tmp_path):
-    cfg = dict(init_dim=4, event_dim=EventSeq.dim(), control_dim=ControlSeq.dim(),
-               hidden_dim=8, gru_layers=1, gru_dropout=0.0)
-    model = PerformanceRNN(**cfg)
+    cfg = ModelConfig(init_dim=4, hidden_dim=8, gru_layers=1, gru_dropout=0.0)
+    model = PerformanceRNN(**vars(cfg))
     path = tmp_path / 'm.sess'
-    save_model(model, cfg, torch.optim.Adam(model.parameters()), path)
+    save_checkpoint(path, model, cfg, torch.optim.Adam(model.parameters()))
     state = torch.load(path, weights_only=True)
     assert state['format_version'] == FORMAT_VERSION
-    check_format(state, path)
+    load_checkpoint(path)
 
     del state['format_version']
     torch.save(state, tmp_path / 'old.sess')

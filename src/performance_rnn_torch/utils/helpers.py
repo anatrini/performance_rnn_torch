@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import Generator, List, Optional, Dict, Any
+from typing import Generator, List, Optional
 
 import numpy as np
 
@@ -98,76 +98,3 @@ def transposition(
     controls[..., hist.start:hist.stop] = np.roll(controls[..., hist.start:hist.stop], offset, -1)
 
     return events, controls
-
-
-def dict2params(d: Dict[str, Any], separator: str = ',') -> str:
-    """
-    Convert a dictionary to a parameter string.
-
-    Args:
-        d: Dictionary to convert
-        separator: Character to separate key-value pairs (default: ',')
-
-    Returns:
-        str: Parameter string in format 'key1=value1,key2=value2'
-
-    Example:
-        >>> dict2params({'lr': 0.001, 'batch': 32})
-        'lr=0.001,batch=32'
-    """
-    return separator.join(f'{k}={v}' for k, v in d.items())
-
-
-def params2dict(
-    params_str: str,
-    separator: str = ',',
-    equals: str = '='
-) -> Dict[str, Any]:
-    """
-    Convert a parameter string to a dictionary.
-
-    WARNING: This function uses eval() which can be a security risk.
-    Only use with trusted input.
-
-    Args:
-        params_str: Parameter string to parse
-        separator: Character separating key-value pairs (default: ',')
-        equals: Character separating keys and values (default: '=')
-
-    Returns:
-        dict: Parsed dictionary
-
-    Example:
-        >>> params2dict('lr=0.001,batch=32')
-        {'lr': 0.001, 'batch': 32}
-    """
-    d = {}
-    for item in params_str.split(separator):
-        item = item.split(equals)
-        if len(item) < 2:
-            continue
-        k, *v = item
-        # WARNING: eval is used here - potential security risk
-        # Consider using ast.literal_eval for safer parsing
-        d[k] = eval(equals.join(v))
-    return d
-
-
-def compute_gradient_norm(parameters, norm_type: float = 2.0) -> float:
-    """
-    Compute the norm of gradients across all parameters.
-
-    Args:
-        parameters: Iterable of parameters (e.g., model.parameters())
-        norm_type: Type of norm to compute (default: 2.0 for L2 norm)
-
-    Returns:
-        float: The computed gradient norm
-    """
-    total_norm = 0.0
-    for p in parameters:
-        if p.grad is not None:
-            param_norm = p.grad.detach().norm(norm_type)
-            total_norm += param_norm ** norm_type
-    total_norm = total_norm ** (1.0 / norm_type)
-    return total_norm

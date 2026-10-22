@@ -185,19 +185,3 @@ class ProjectPaths:
 
 # Global instance for easy access
 paths = ProjectPaths()
-
-
-# Convenience functions for backward compatibility
-def get_data_dir() -> Path:
-    """Get the data directory path."""
-    return paths.data_dir
-
-
-def get_models_dir() -> Path:
-    """Get the models directory path."""
-    return paths.models_dir
-
-
-def get_output_dir() -> Path:
-    """Get the output directory path."""
-    return paths.output_dir

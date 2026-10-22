@@ -1,131 +1,71 @@
-"""Configuration settings for Performance RNN."""
+"""Default settings of the model, of training and of generation."""
 
-import platform
+import ast
+from dataclasses import dataclass, fields, replace
+
 import torch
 
-
-# ========================================================================
-# Set device according to OS and available devices
-# ========================================================================
-
-if platform.system() == 'Darwin':  # Mac OS
-    if torch.backends.mps.is_available():  # Check if Metal is available
-        device = torch.device('mps')
-    else:
-        device = torch.device('cpu')
-else:  # Linux or Windows
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+from performance_rnn_torch.core.sequence import ControlSeq, EventSeq
 
 
-# ========================================================================
-# Model configuration factory function
-# ========================================================================
-
-def get_model_config():
-    """
-    Get model configuration with dimensions from EventSeq and ControlSeq.
-
-    This function lazily imports EventSeq and ControlSeq to avoid circular imports.
-
-    Returns:
-        dict: Model configuration dictionary
-    """
-    from performance_rnn_torch.core.sequence import EventSeq, ControlSeq
-
-    return {
-        'init_dim': 32,
-        'event_dim': EventSeq.dim(),
-        'control_dim': ControlSeq.dim(),
-        'hidden_dim': 256,  # Smaller for faster training (512 for better quality)
-        'gru_layers': 2,    # Fewer layers = faster training (3 for better quality)
-        'gru_dropout': 0.3,
-    }
+def default_device(name: str = 'auto') -> torch.device:
+    """'auto' picks CUDA, then Apple's MPS, then the CPU."""
+    if name != 'auto':
+        return torch.device(name)
+    if torch.cuda.is_available():
+        return torch.device('cuda')
+    if torch.backends.mps.is_available():
+        return torch.device('mps')
+    return torch.device('cpu')
 
 
-# For backward compatibility, create a lazy-loading dict-like class
-class _LazyModelConfig(dict):
-    """Dictionary that lazily computes model dimensions when first accessed."""
+@dataclass(frozen=True)
+class ModelConfig:
+    event_dim: int = EventSeq.dim()
+    control_dim: int = ControlSeq.dim()
+    init_dim: int = 32
+    hidden_dim: int = 256     # Magenta: 512
+    gru_layers: int = 2       # Magenta: 3
+    gru_dropout: float = 0.3
 
-    def __init__(self):
-        super().__init__()
-        self._initialized = False
-
-    def _ensure_initialized(self):
-        if not self._initialized:
-            self._initialized = True
-            super().update(get_model_config())
-
-    def update(self, *args, **kwargs):
-        self._ensure_initialized()
-        super().update(*args, **kwargs)
-
-    def __setitem__(self, key, value):
-        self._ensure_initialized()
-        super().__setitem__(key, value)
-
-    def __getitem__(self, key):
-        self._ensure_initialized()
-        return super().__getitem__(key)
-
-    def __contains__(self, key):
-        self._ensure_initialized()
-        return super().__contains__(key)
-
-    def get(self, key, default=None):
-        self._ensure_initialized()
-        return super().get(key, default)
-
-    def items(self):
-        self._ensure_initialized()
-        return super().items()
-
-    def keys(self):
-        self._ensure_initialized()
-        return super().keys()
-
-    def values(self):
-        self._ensure_initialized()
-        return super().values()
-
-    def copy(self):
-        """Return a copy of the config, ensuring initialization first."""
-        self._ensure_initialized()
-        return super().copy()
+    def with_params(self, params: str) -> 'ModelConfig':
+        """Override fields from text such as "hidden_dim=512,gru_layers=3"."""
+        names = {f.name for f in fields(self)}
+        values = {}
+        for item in filter(None, (p.strip() for p in params.split(','))):
+            key, _, value = item.partition('=')
+            if key not in names:
+                raise ValueError(f'unknown model parameter "{key}"; known: {", ".join(sorted(names))}')
+            values[key] = ast.literal_eval(value)
+        return replace(self, **values)
 
 
-model = _LazyModelConfig()
-
-# ========================================================================
-# Training configuration
-# ========================================================================
-
-train = {
-    'batch_size': 32,  # Smaller batch for faster epochs (64 for better stability)
-    'num_epochs': 15,  # Quick test (50+ for production)
-    'window_size': 100,  # Shorter sequences = faster training (200 for better context)
-    'stride_size': 10,  # Stride for creating training windows
-    'learning_rate': 0.001,  # Learning rate for optimizer
-    'train_test_ratio': 0.3,  # Ratio of data to use for testing
-    'early_stopping_patience': 5,  # Epochs to wait before early stopping
-    'use_transposition': False,  # Whether to use data augmentation via transposition
-    'control_ratio': 1.0,  # Ratio for control conditioning
-    'teacher_forcing_ratio': 1.0,  # 1 = true previous events (fast); below 1 = scheduled sampling (slow)
-    'saving_interval': 180  # Saving interval in seconds
-}
+@dataclass(frozen=True)
+class TrainConfig:
+    batch_size: int = 32
+    num_epochs: int = 15
+    window_size: int = 100            # events per training window
+    stride_size: int = 10             # events between the starts of two windows
+    learning_rate: float = 1e-3
+    train_test_ratio: float = 0.3     # share of files used for validation
+    early_stopping_patience: int = 5  # epochs without improvement; 0 = off
+    use_transposition: bool = False   # random transposition by -6..5 semitones
+    control_ratio: float = 1.0        # share of batches trained with controls
+    teacher_forcing_ratio: float = 1.0
+    clip_norm: float = 1.0
+    saving_interval: float = 180.0    # seconds between saves of the last state
+    enable_logging: bool = True       # TensorBoard
+    seed: int = 0
 
 
-# ========================================================================
-# Generation configuration
-# ========================================================================
-
-generate = {
-    'batch_size': 8,  # Number of sequences to generate in parallel
-    'max_len': 1000,  # Maximum length of generated sequences
-    'greedy_ratio': 0.0,  # Share of steps that take the most likely event (0 = always sample)
-    'beam_size': 0,  # Beam size for beam search (0 = disabled)
-    'temperature': 1.0,  # Temperature for probabilistic sampling
-    'top_k': 0,  # Sample among the k most likely events (0 = all)
-    'top_p': 1.0,  # Sample among the events that make up probability p (1 = all)
-    'stochastic_beam_search': False,  # Whether to use stochastic beam search
-    'init_zero': False  # Whether to initialize with zeros
-}
+@dataclass(frozen=True)
+class GenerateConfig:
+    batch_size: int = 8
+    max_len: int = 1000
+    greedy_ratio: float = 0.0         # share of steps that take the most likely event
+    beam_size: int = 0                # 0 = sampling instead of beam search
+    temperature: float = 1.0
+    top_k: int = 0                    # 0 = all events
+    top_p: float = 1.0                # 1 = all events
+    stochastic_beam_search: bool = False
+    init_zero: bool = False

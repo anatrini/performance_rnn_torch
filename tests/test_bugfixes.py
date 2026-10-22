@@ -10,10 +10,10 @@ import torch
 from pretty_midi import Instrument, Note, PrettyMIDI
 from torch import nn, optim
 
-from performance_rnn_torch import config
+from performance_rnn_torch.config import GenerateConfig, ModelConfig, TrainConfig
 from performance_rnn_torch.core import Dataset, PerformanceRNN
 from performance_rnn_torch.core.sequence import ControlSeq, EventSeq, NoteSeq
-from performance_rnn_torch.training import evaluate, last_session_path, loss_update, train_model
+from performance_rnn_torch.training import batch_loss, evaluate, last_session_path, load_model, train_model
 from performance_rnn_torch.utils import helpers
 
 CPU = torch.device('cpu')
@@ -22,9 +22,14 @@ ROOT = Path(__file__).parent.parent
 
 def small_model(seed=0):
     torch.manual_seed(seed)
-    cfg = dict(init_dim=4, event_dim=EventSeq.dim(), control_dim=ControlSeq.dim(),
-               hidden_dim=16, gru_layers=2, gru_dropout=0.5)
-    return PerformanceRNN(**cfg), cfg
+    cfg = ModelConfig(init_dim=4, hidden_dim=16, gru_layers=2, gru_dropout=0.5)
+    return PerformanceRNN(**vars(cfg)), cfg
+
+
+def train_config(**kwargs):
+    defaults = dict(batch_size=4, num_epochs=3, window_size=20, stride_size=10,
+                    early_stopping_patience=0, enable_logging=False, saving_interval=1e9)
+    return TrainConfig(**{**defaults, **kwargs})
 
 
 def random_samples(n, length=200, seed=0):
@@ -66,8 +71,8 @@ def test_optimize_minimises_the_validation_loss_and_keeps_only_the_best_trial(tm
 
     losses = iter([3.0, 1.0, 2.0])
 
-    def fake_train_model(*args):
-        sess_path = Path(args[-1])
+    def fake_train_model(model, optimizer, dataset, cfg, model_config, sess_path, device):
+        sess_path = Path(sess_path)
         sess_path.parent.mkdir(parents=True, exist_ok=True)
         sess_path.write_bytes(b'x')
         last_session_path(sess_path).write_bytes(b'x')
@@ -77,8 +82,7 @@ def test_optimize_minimises_the_validation_loss_and_keeps_only_the_best_trial(tm
     _, cfg = small_model()
     sess = tmp_path / 'optimization.sess'
     study = optuna.create_study(direction='minimize')
-    study.optimize(lambda t: optimize.objective(t, sess, cfg, config.train, CPU, None, False),
-                   n_trials=3)
+    study.optimize(lambda t: optimize.objective(t, sess, cfg, TrainConfig(), CPU, None), n_trials=3)
 
     assert study.best_value == 1.0
     kept = sorted(p.name for p in (tmp_path / 'optimization').iterdir())
@@ -90,11 +94,10 @@ def test_optimize_minimises_the_validation_loss_and_keeps_only_the_best_trial(tm
 def test_evaluate_is_deterministic_and_leaves_no_gradients():
     model, cfg = small_model()
     data = Dataset.from_samples(random_samples(2))
-    loss_function = nn.CrossEntropyLoss()
-    args = (data, 4, 20, 20, cfg['event_dim'], loss_function, CPU)
+    cfg = train_config(stride_size=20)
 
-    first = evaluate(model, *args)
-    second = evaluate(model, *args)
+    first = evaluate(model, data, cfg, CPU)
+    second = evaluate(model, data, cfg, CPU)
 
     assert first == second                      # dropout off, same initial states
     assert all(p.grad is None for p in model.parameters())
@@ -107,10 +110,10 @@ def test_loss_counts_every_event_including_index_0():
     model, cfg = small_model()
     model.eval()
     events = torch.zeros(10, 2, dtype=torch.long)    # only event 0
-    init = torch.zeros(2, cfg['init_dim'])
-    loss = loss_update(init, 10, events, cfg['event_dim'], None, model, nn.CrossEntropyLoss(), 1.0)
+    init = torch.zeros(2, cfg.init_dim)
+    loss = batch_loss(model, events, None, init)
     logits = model(events, None, init)
-    expected = nn.functional.cross_entropy(logits.reshape(-1, cfg['event_dim']), events.reshape(-1))
+    expected = nn.functional.cross_entropy(logits.reshape(-1, cfg.event_dim), events.reshape(-1))
     assert torch.isclose(loss, expected)
 
 
@@ -151,16 +154,14 @@ def test_training_saves_the_best_model_and_the_last_state(tmp_path):
     model, cfg = small_model()
     data = Dataset.from_samples(random_samples(4, length=300))
     sess = tmp_path / 'nested' / 'model.sess'          # folder does not exist yet
-    best = train_model(model, optim.Adam(model.parameters(), 1e-2), data, 4, 3, 20, 10, 0.3, 0,
-                       cfg['event_dim'], 1.0, 1.0, False, 1e9, False, CPU, cfg, sess)
+    tc = train_config()
+    best = train_model(model, optim.Adam(model.parameters(), 1e-2), data, tc, cfg, sess, CPU)
 
     assert sess.exists() and last_session_path(sess).exists()
-    state = torch.load(sess, map_location=CPU, weights_only=True)
-    saved = PerformanceRNN(**state['model_config'])
-    saved.load_state_dict(state['model_state'])
-    _, test = data.train_test_split(0.3)
-    assert math.isclose(evaluate(saved, test, 4, 20, 10, cfg['event_dim'], nn.CrossEntropyLoss(), CPU),
-                        best, rel_tol=1e-6)
+    saved, saved_config, state = load_model(sess)
+    assert saved_config == cfg and state['best_val_loss'] == best
+    _, test = data.train_test_split(tc.train_test_ratio, seed=tc.seed)
+    assert math.isclose(evaluate(saved, test, tc, CPU), best, rel_tol=1e-6)
 
 
 # 8 -------------------------------------------------------------------------
@@ -180,15 +181,15 @@ def test_tensorboard_steps_keep_counting_across_epochs(tmp_path, monkeypatch):
     monkeypatch.setattr(tensorboard, 'SummaryWriter', FakeWriter)
     model, cfg = small_model()
     data = Dataset.from_samples(random_samples(3, length=100))
-    train_model(model, optim.Adam(model.parameters()), data, 2, 2, 20, 20, 0.3, 0,
-                cfg['event_dim'], 1.0, 1.0, True, 1e9, False, CPU, cfg, tmp_path / 'm.sess')
+    tc = train_config(batch_size=2, num_epochs=2, stride_size=20, enable_logging=True)
+    train_model(model, optim.Adam(model.parameters()), data, tc, cfg, tmp_path / 'm.sess', CPU)
     assert steps == list(range(len(steps))) and len(steps) > 4
 
 
 # 9 -------------------------------------------------------------------------
 
 def test_generation_samples_by_default():
-    assert config.generate['greedy_ratio'] == 0.0
+    assert GenerateConfig().greedy_ratio == 0.0
 
 
 # 10 ------------------------------------------------------------------------
@@ -228,11 +229,11 @@ def test_licence_keeps_the_original_notice():
 
 # 16 ------------------------------------------------------------------------
 
-def test_model_parameters_set_before_the_first_read_are_kept():
-    cfg = config._LazyModelConfig()
-    cfg.update({'hidden_dim': 64})
-    assert cfg['hidden_dim'] == 64
-    assert cfg['event_dim'] == EventSeq.dim()
+def test_model_parameters_from_the_command_line_are_applied():
+    cfg = ModelConfig().with_params('hidden_dim=64, gru_dropout=0.1')
+    assert (cfg.hidden_dim, cfg.gru_dropout, cfg.event_dim) == (64, 0.1, EventSeq.dim())
+    with pytest.raises(ValueError, match='unknown model parameter'):
+        ModelConfig().with_params('hiden_dim=64')
 
 
 # 17 ------------------------------------------------------------------------
