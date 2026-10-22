@@ -14,6 +14,7 @@ COMMANDS = {
     'train': 'Train a model on preprocessed data',
     'generate': 'Generate MIDI files with a trained model',
     'optimize': 'Search hyperparameters with Optuna',
+    'serve': 'Play a model in real time, controlled over OSC (from Max or Pd)',
 }
 
 

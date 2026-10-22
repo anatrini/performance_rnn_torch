@@ -20,6 +20,7 @@ classifiers = [
 dependencies = [
     "numpy>=2.0",
     "pretty-midi>=0.2.10",
+    "python-osc>=1.10.2",
     "torch>=2.6",
     "tqdm>=4.66",
 ]
