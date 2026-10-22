@@ -10,6 +10,7 @@ from torch import nn, optim
 from tqdm import tqdm
 
 from performance_rnn_torch.core import Dataset, PerformanceRNN
+from performance_rnn_torch.core.sequence import FORMAT_VERSION
 from performance_rnn_torch.training.early_stopping import EarlyStopping
 from performance_rnn_torch.utils.logger import setup_logger
 from performance_rnn_torch.utils import helpers
@@ -38,6 +39,7 @@ def load_session(sess_path, model_config, device, learning_rate, reset_optimizer
 
     try:
         sess = torch.load(sess_path, map_location=device, weights_only=True)
+        check_format(sess, sess_path)
 
         # Check if model configuration matches
         if 'model_config' in sess:
@@ -82,6 +84,14 @@ def load_session(sess_path, model_config, device, learning_rate, reset_optimizer
     return model, optimizer
 
 
+def check_format(state, path):
+    """Refuse checkpoints written for another event vocabulary."""
+    version = state.get('format_version')
+    if version != FORMAT_VERSION:
+        raise ValueError(f'{path}: checkpoint format {version}, expected {FORMAT_VERSION}. '
+                         'Checkpoints of older versions cannot be used: train a new model.')
+
+
 def load_dataset(data_path):
     """
     Load preprocessed dataset from disk.
@@ -110,6 +120,7 @@ def save_model(model, model_config, optimizer, sess_path):
     """
     logger.info(f'Saving to {sess_path}')
     torch.save({
+        'format_version': FORMAT_VERSION,
         'model_config': dict(model_config),  # a plain dict loads with weights_only=True
         'model_state': model.state_dict(),
         'model_optimizer_state': optimizer.state_dict()

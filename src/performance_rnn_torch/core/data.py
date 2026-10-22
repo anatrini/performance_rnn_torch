@@ -1,28 +1,24 @@
 """Dataset class for loading and batching training data."""
 
 import os
-import torch
 import numpy as np
 from tqdm import tqdm
 
 from performance_rnn_torch import config
 from performance_rnn_torch.utils import helpers
-from performance_rnn_torch.core.sequence import ControlSeq
+from performance_rnn_torch.core.sequence import load_processed
 
 
 class Dataset:
     def __init__(self, root, verbose=False):
         assert os.path.isdir(root), root
-        paths = helpers.find_files_by_extensions(root, ['.data'])
+        paths = sorted(helpers.find_files_by_extensions(root, ['.npz']))
         if verbose:
             paths = tqdm(list(paths), desc=root)
         samples = []
         for path in paths:
-            # pickled numpy arrays written by `prnn preprocess`
-            eventseq, controlseq = torch.load(path, weights_only=False)
-            controlseq = ControlSeq.recover_compressed_array(controlseq)
-            assert len(eventseq) == len(controlseq)
-            samples.append((eventseq, controlseq))
+            events, controls = load_processed(path)
+            samples.append((events, controls))
         self._set(root, samples)
 
     @classmethod

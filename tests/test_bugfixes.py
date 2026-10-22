@@ -45,7 +45,7 @@ def test_transposition_rotates_the_pitch_histogram_and_keeps_the_density():
     controls = np.zeros((1, 1, ControlSeq.dim()))
     controls[0, 0, dens.start + 3] = 1.0          # density bin 3
     controls[0, 0, hist.start + 0] = 1.0          # all notes are C
-    events = np.array([[EventSeq.feat_ranges()['note_on'].start + 39]])   # C4
+    events = np.array([[EventSeq.feat_ranges()['note_on'].start + 60]])   # C4
 
     _, transposed = helpers.transposition(events, controls, 7)
     np.testing.assert_array_equal(transposed[0, 0, dens], controls[0, 0, dens])
@@ -54,7 +54,7 @@ def test_transposition_rotates_the_pitch_histogram_and_keeps_the_density():
 
 def test_control_layout_matches_the_arrays():
     ranges = ControlSeq.feat_ranges()
-    array = ControlSeq.recover_compressed_array(np.array([[5] + [0] * 12], dtype=np.uint8))
+    array = ControlSeq.recover_compressed_arrays(np.array([5]), np.zeros((1, 12), np.uint8))
     assert array[0, ranges['note_density'].start + 5] == 1.0
 
 
@@ -216,7 +216,7 @@ def test_preprocess_skips_empty_files(tmp_path):
 
     saved = preprocess_midi_files_under(midi_root, tmp_path / 'processed', 1)
     assert saved == 1
-    assert len(list((tmp_path / 'processed').rglob('*.data'))) == 1
+    assert len(list((tmp_path / 'processed').rglob('*.npz'))) == 1
 
 
 # 12 ------------------------------------------------------------------------

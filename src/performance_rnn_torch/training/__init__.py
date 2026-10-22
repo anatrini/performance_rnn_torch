@@ -2,6 +2,7 @@
 
 from performance_rnn_torch.training.early_stopping import EarlyStopping
 from performance_rnn_torch.training.trainer import (
+    check_format,
     load_session,
     load_dataset,
     save_model,
@@ -13,6 +14,7 @@ from performance_rnn_torch.training.trainer import (
 
 __all__ = [
     'EarlyStopping',
+    'check_format',
     'load_session',
     'load_dataset',
     'save_model',

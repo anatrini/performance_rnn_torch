@@ -4,7 +4,6 @@ from performance_rnn_torch.core.sequence import (
     EventSeq,
     ControlSeq,
     NoteSeq,
-    Event,
     Control,
 )
 from performance_rnn_torch.core.model import PerformanceRNN

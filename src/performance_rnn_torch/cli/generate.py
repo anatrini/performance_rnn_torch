@@ -15,7 +15,8 @@ from pathlib import Path
 from performance_rnn_torch import config
 from performance_rnn_torch.utils.logger import setup_logger
 from performance_rnn_torch.core import PerformanceRNN
-from performance_rnn_torch.core.sequence import Control, ControlSeq
+from performance_rnn_torch.core.sequence import Control, ControlSeq, load_processed
+from performance_rnn_torch.training import check_format
 from performance_rnn_torch.utils import helpers, paths
 
 
@@ -98,8 +99,10 @@ def add_arguments(parser):
                       help=('control or a processed data file path, '
                             'e.g., "PITCH_HISTOGRAM;NOTE_DENSITY" like '
                             '"2,0,1,1,0,1,0,1,1,0,0,1;4", or '
-                            '";3" (which gives all pitches the same probability), '
-                            'or "/path/to/processed/midi/file.data" '
+                            '";3" (which gives all pitches the same probability). '
+                            'NOTE_DENSITY is a class 0-7: fewer than 1, 1-2, 2-4, 4-8, '
+                            '8-16, 16-32, 32-64, 64 or more notes per second. '
+                            'Or a preprocessed file "/path/to/processed/file.npz" '
                             '(uses control sequence from the given processed data)'))
 
     parser.add_argument('-b', '--batch-size',
@@ -239,12 +242,10 @@ def main(args):
     if control is not None:
         if os.path.isfile(control) or os.path.isdir(control):
             if os.path.isdir(control):
-                files = list(helpers.find_files_by_extensions(control))
+                files = list(helpers.find_files_by_extensions(control, ['.npz']))
                 assert len(files) > 0, f'no file in "{control}"'
                 control = np.random.choice(files)
-            # preprocessed files are pickled numpy arrays, written by `prnn preprocess`
-            _, compressed_controls = torch.load(control, weights_only=False)
-            controls = ControlSeq.recover_compressed_array(compressed_controls)
+            _, controls = load_processed(control)
             if max_len == 0:
                 max_len = controls.shape[0]
             controls = torch.tensor(controls, dtype=torch.float32)
@@ -262,7 +263,8 @@ def main(args):
                 pitch_histogram = pitch_histogram / pitch_histogram.sum() \
                     if pitch_histogram.sum() else np.ones(12) / 12
             note_density = int(note_density)
-            assert note_density in range(len(ControlSeq.note_density_bins))
+            assert note_density in range(ControlSeq.feat_dims()['note_density']), \
+                f'note density class must be 0-{ControlSeq.feat_dims()["note_density"] - 1}'
             control = Control(pitch_histogram, note_density)
             controls = torch.tensor(control.to_array(), dtype=torch.float32)
             controls = controls.repeat(1, batch_size, 1).to(device)
@@ -278,6 +280,7 @@ def main(args):
     logger.info(f'Model name: {model_name}')
 
     state = torch.load(sess_path, map_location=device, weights_only=True)
+    check_format(state, sess_path)
     model = PerformanceRNN(**state['model_config']).to(device)
     model.load_state_dict(state['model_state'])
     model.eval()

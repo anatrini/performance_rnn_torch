@@ -39,18 +39,13 @@ def find_files_by_extensions(
                 yield os.path.join(path, name)
 
 
-def event_indices_to_midi_file(
-    event_indices: np.ndarray,
-    midi_file_name: str,
-    velocity_scale: float = 0.8
-) -> int:
+def event_indices_to_midi_file(event_indices: np.ndarray, midi_file_name: str) -> int:
     """
     Convert event indices to a MIDI file.
 
     Args:
         event_indices: Array of event indices
         midi_file_name: Output MIDI file path
-        velocity_scale: Scale factor for note velocity (default: 0.8)
 
     Returns:
         int: Number of notes in the generated MIDI file
@@ -58,13 +53,7 @@ def event_indices_to_midi_file(
     # Import here to avoid circular import
     from performance_rnn_torch.core.sequence import EventSeq
 
-    event_seq = EventSeq.from_array(event_indices)
-    note_seq = event_seq.to_note_seq()
-
-    # Apply velocity scaling
-    for note in note_seq.notes:
-        note.velocity = int((note.velocity - 64) * velocity_scale + 64)
-
+    note_seq = EventSeq.from_array(event_indices).to_note_seq()
     note_seq.to_midi_file(midi_file_name)
     return len(note_seq.notes)
 
@@ -75,57 +64,38 @@ def transposition(
     offset: int = 0
 ) -> tuple:
     """
-    Transpose events and controls by a given offset.
+    Transpose events and controls by a number of semitones (at most an octave).
 
-    This function shifts note_on and note_off events by the specified offset,
-    wrapping around octaves to maintain valid note ranges. It also rotates
-    the pitch histogram in the control sequence accordingly.
+    note_on and note_off events move by the offset; a pitch that would leave
+    the MIDI range 0-127 moves an octave less. The pitch histogram of the
+    controls rotates by the same offset.
 
     Args:
-        events: Event array of shape [steps, batch_size, event_dim]
+        events: Event array of shape [steps, batch_size]
         controls: Control array of shape [steps, batch_size, control_dim]
-        offset: Number of semitones to transpose (can be negative)
+        offset: Number of semitones, -12 to 12
 
     Returns:
         tuple: (transposed_events, transposed_controls)
     """
     # Import here to avoid circular import
-    from performance_rnn_torch.core.sequence import EventSeq, ControlSeq
+    from performance_rnn_torch.core.sequence import NUM_PITCHES, ControlSeq, EventSeq
 
+    assert -12 <= offset <= 12, offset
     events = np.array(events, dtype=np.int64)
     controls = np.array(controls, dtype=np.float32)
-    event_feat_ranges = EventSeq.feat_ranges()
+    ranges = EventSeq.feat_ranges()
 
-    on = event_feat_ranges['note_on']
-    off = event_feat_ranges['note_off']
+    for name in ('note_on', 'note_off'):
+        start = ranges[name].start
+        mask = (events >= start) & (events < start + NUM_PITCHES)
+        pitch = events[mask] - start + offset
+        pitch = np.where(pitch >= NUM_PITCHES, pitch - 12, pitch)
+        pitch = np.where(pitch < 0, pitch + 12, pitch)
+        events[mask] = start + pitch
 
-    if offset > 0:
-        # For positive offset, shift notes up
-        # Notes that would go out of range wrap down by one octave
-        indeces0 = (((on.start <= events) & (events < on.stop - offset)) |
-                    ((off.start <= events) & (events < off.stop - offset)))
-        indeces1 = (((on.stop - offset <= events) & (events < on.stop)) |
-                    ((off.stop - offset <= events) & (events < off.stop)))
-        events[indeces0] += offset
-        events[indeces1] += offset - 12
-    elif offset < 0:
-        # For negative offset, shift notes down
-        # Notes that would go out of range wrap up by one octave
-        indeces0 = (((on.start - offset <= events) & (events < on.stop)) |
-                    ((off.start - offset <= events) & (events < off.stop)))
-        indeces1 = (((on.start <= events) & (events < on.start - offset)) |
-                    ((off.start <= events) & (events < off.start - offset)))
-        events[indeces0] += offset
-        events[indeces1] += offset + 12
-
-    # Validate all events are in valid range
-    assert ((0 <= events) & (events < EventSeq.dim())).all(), \
-        "Transposed events out of valid range"
-
-    # Rotate pitch histogram in controls
-    histr = ControlSeq.feat_ranges()['pitch_histogram']
-    controls[:, :, histr.start:histr.stop] = np.roll(
-        controls[:, :, histr.start:histr.stop], offset, -1)
+    hist = ControlSeq.feat_ranges()['pitch_histogram']
+    controls[..., hist.start:hist.stop] = np.roll(controls[..., hist.start:hist.stop], offset, -1)
 
     return events, controls
 

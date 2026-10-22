@@ -8,11 +8,11 @@ and control sequences.
 import hashlib
 import os
 from pathlib import Path
-import torch
 
 from concurrent.futures import ProcessPoolExecutor
 from performance_rnn_torch.utils.logger import setup_logger
-from performance_rnn_torch.core.sequence import NoteSeq, EventSeq, ControlSeq
+from performance_rnn_torch.core.sequence import ControlSeq, EventSeq, NoteSeq
+from performance_rnn_torch.core.sequence import save_processed as write_processed
 from performance_rnn_torch.utils import helpers, paths
 from tqdm import tqdm
 
@@ -65,7 +65,7 @@ def preprocess_midi(path):
     note_seq.adjust_time(-note_seq.notes[0].start)
     event_seq = EventSeq.from_note_seq(note_seq)
     control_seq = ControlSeq.from_event_seq(event_seq)
-    return event_seq.to_array(), control_seq.to_compressed_array()
+    return event_seq, control_seq
 
 def preprocess_midi_files_under(midi_root, save_dir, num_workers):
     midi_paths = list(helpers.find_files_by_extensions(midi_root, ['.mid', '.midi']))
@@ -110,9 +110,9 @@ def save_processed(path, data, midi_root, save_dir):
     # Save with hash to avoid name collisions
     name = path.stem  # filename without extension
     code = hashlib.md5(str(path).encode()).hexdigest()
-    save_path = target_dir / f'{name}-{code}.data'
+    save_path = target_dir / f'{name}-{code}.npz'
 
-    torch.save(data, save_path)
+    write_processed(save_path, *data)
 
 
 def main(args):
