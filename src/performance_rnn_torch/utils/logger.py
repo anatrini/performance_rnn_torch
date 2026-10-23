@@ -58,7 +58,7 @@ def setup_logger(
             paths.logs_dir.mkdir(parents=True, exist_ok=True)
             timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
             log_path = paths.get_log_path(f'model_info_{timestamp}.log')
-        file_handler = logging.FileHandler(log_path)
+        file_handler = logging.FileHandler(log_path, encoding='utf-8')
         file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
         root.addHandler(file_handler)
 

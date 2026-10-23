@@ -133,13 +133,14 @@ def test_controls():
 
 def test_osc_round_trip():
     from pythonosc.dispatcher import Dispatcher
-    from pythonosc.osc_server import ThreadingOSCUDPServer
+    from pythonosc.osc_server import BlockingOSCUDPServer
     from pythonosc.udp_client import SimpleUDPClient
 
     received = []
     dispatcher = Dispatcher()
     dispatcher.set_default_handler(lambda address, *args: received.append((address, args)))
-    listener = ThreadingOSCUDPServer(('127.0.0.1', 0), dispatcher)
+    # one thread, so that the messages are recorded in the order they arrive (as in Max or Pd)
+    listener = BlockingOSCUDPServer(('127.0.0.1', 0), dispatcher)
     threading.Thread(target=listener.serve_forever, daemon=True).start()
 
     torch.manual_seed(5)
@@ -169,6 +170,9 @@ def test_osc_round_trip():
     time.sleep(1.5)
     stop.set()
     thread.join(5)
+    deadline = time.time() + 5
+    while (not received or received[-1] != ('/playing', (0,))) and time.time() < deadline:
+        time.sleep(0.01)  # the last messages may still be on their way
     listener.shutdown()
 
     addresses = [a for a, _ in received]

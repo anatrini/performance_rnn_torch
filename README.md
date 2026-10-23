@@ -45,6 +45,7 @@ uv run prnn --help
 **Hardware.** Training uses an NVIDIA GPU (CUDA) or Apple Silicon (MPS) when available, otherwise the CPU; generation runs well on any of them.
 
 - macOS and Linux: nothing else to do. On Linux, the PyTorch packages from PyPI already include CUDA.
+- Windows: the tests run on Windows too, on the CPU.
 - Windows with an NVIDIA GPU: the default PyTorch package for Windows has no CUDA. After `uv sync`, replace it with the one that matches your driver, and run the commands with `--no-sync` so that uv does not put the other one back:
 
   ```bash

@@ -63,7 +63,7 @@ def test_prepare_copies_one_composer(project):
         ('Frédéric Chopin', '2004/chopin.midi'),
     ]
     maestro.mkdir()
-    with open(maestro / 'maestro-v3.0.0.csv', 'w', newline='') as f:
+    with open(maestro / 'maestro-v3.0.0.csv', 'w', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
         writer.writerow(['canonical_composer', 'midi_filename'])
         writer.writerows(rows)

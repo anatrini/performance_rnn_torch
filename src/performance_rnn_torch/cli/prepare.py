@@ -182,9 +182,9 @@ def copy_midis(midi_files: list[str], maestro_dir: Path, output_dir: Path, keep_
             logger.error(f"Failed to copy {source_path.name}: {e}")
             failed_count += 1
 
-    logger.info(f"\n✓ Successfully copied {copied_count} files to: {output_dir}")
+    logger.info(f"\nCopied {copied_count} files to: {output_dir}")
     if failed_count > 0:
-        logger.warning(f"✗ Failed to copy {failed_count} files")
+        logger.warning(f"Failed to copy {failed_count} files")
 
     return copied_count
 

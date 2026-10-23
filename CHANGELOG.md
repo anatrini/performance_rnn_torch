@@ -8,6 +8,7 @@ Models trained with 2.0.0 still load; train new ones to get the new defaults.
 
 - `prnn train --init-from`: a new model that starts from the weights of another, e.g. one trained on all of MAESTRO, to fine-tune it on one composer. The optimizer and the best validation loss start anew; `-M` can change the dropout.
 - `prnn prepare --all`, with `--exclude` (repeatable): copy every MIDI file of MAESTRO, except those of some composers, to `data/midi-maestro/`.
+- The tests also run on Windows. The log file is written in UTF-8 on every system.
 
 ### Changed
 
