@@ -1,9 +1,11 @@
 """`prnn train`: train a Performance RNN model."""
 
 import argparse
+import math
+from pathlib import Path
 
 from performance_rnn_torch.config import MAX_TRANSPOSITION, ModelConfig, TrainConfig, default_device
-from performance_rnn_torch.training import load_dataset, load_session, set_seed, train_model
+from performance_rnn_torch.training import load_dataset, load_session, set_seed, start_from, train_model
 from performance_rnn_torch.utils import paths
 from performance_rnn_torch.utils.logger import setup_logger
 
@@ -15,6 +17,9 @@ Examples:
 
   # saved as models/bach.sess, with dropout (advisable with a few hundred files or less)
   prnn train -S models/bach.sess -M "gru_dropout=0.3"
+
+  # fine-tuning: a new model that starts from one trained on all of MAESTRO
+  prnn train -S models/bach-ft.sess --init-from models/maestro.sess -l 1e-4 -M "gru_dropout=0.3"
 
 The defaults are Magenta's (3 layers of 512 units, batches of 64, windows of
 512 events, transposition, half of the batches without controls). If
@@ -152,6 +157,13 @@ def add_arguments(parser):
         help='Seconds between saves of the last state (default: %(default)s)',
     )
     parser.add_argument(
+        '--init-from',
+        dest='init_from',
+        default=None,
+        help='Start a new checkpoint (-S) from the weights of this one, e.g. a model trained on all of '
+        'MAESTRO, to fine-tune it on other data; the size stays, -M can change only gru_dropout',
+    )
+    parser.add_argument(
         '-R',
         '--reset-optimizer',
         dest='reset_optimizer',
@@ -175,14 +187,22 @@ def main(args):
     set_seed(cfg.seed)
     device = default_device(args.device)
 
-    model, optimizer, model_config, best = load_session(
-        args.sess_path,
-        ModelConfig().with_params(args.model_params),
-        device,
-        cfg.learning_rate,
-        args.reset_optimizer,
-        train_config=cfg,
-    )
+    if args.init_from:
+        if Path(args.sess_path).exists():
+            raise ValueError(
+                f'{args.sess_path} exists: give the new model another name with -S, or continue it without --init-from'
+            )
+        model, optimizer, model_config = start_from(args.init_from, args.model_params, device, cfg.learning_rate)
+        best = math.inf
+    else:
+        model, optimizer, model_config, best = load_session(
+            args.sess_path,
+            ModelConfig().with_params(args.model_params),
+            device,
+            cfg.learning_rate,
+            args.reset_optimizer,
+            train_config=cfg,
+        )
     logger.info(f'Session: {args.sess_path}, device: {device}')
     logger.info(f'{model_config}')
     logger.info(f'{cfg}')

@@ -82,6 +82,29 @@ def load_session(
     return model, optimizer, model_config, best_val_loss
 
 
+def start_from(
+    init_path, model_params: str, device: torch.device, learning_rate: float
+) -> tuple[PerformanceRNN, torch.optim.Optimizer, ModelConfig]:
+    """A new training that starts from the weights of another checkpoint (fine-tuning).
+
+    The model keeps the size of that checkpoint: model_params, e.g.
+    "gru_dropout=0.3", may change only the dropout. The optimizer starts anew,
+    and so does the best validation loss, since it was measured on other data.
+    """
+    state = load_checkpoint(init_path, device)
+    saved = ModelConfig(**state['model_config'])
+    model_config = saved.with_params(model_params)
+    changed = [k for k, v in asdict(model_config).items() if k != 'gru_dropout' and v != getattr(saved, k)]
+    if changed:
+        raise ValueError(
+            f'a model started from {init_path} keeps its size: only gru_dropout can change, not {", ".join(changed)}'
+        )
+    model = PerformanceRNN(**asdict(model_config)).to(device)
+    model.load_state_dict(state['model_state'])
+    logger.info(f'Starting from the weights of {init_path}')
+    return model, torch.optim.Adam(model.parameters(), lr=learning_rate), model_config
+
+
 def load_dataset(data_path) -> Dataset:
     """Load the preprocessed files (.npz) under data_path."""
     dataset = Dataset(str(data_path), verbose=True)

@@ -76,6 +76,35 @@ def test_prepare_copies_one_composer(project):
     assert copied == ['bach1.midi', 'bach2.midi']
     assert prnn(['prepare', '--maestro-dir', str(maestro), '--composer', 'Bach']) == 1
 
+    # everything except Bach, with the year folders, outside data/midi/
+    assert prnn(['prepare', '--maestro-dir', str(maestro), '--all', '--exclude', 'Johann Sebastian Bach']) == 0
+    everything = project / 'data' / 'midi-maestro'
+    assert sorted(p.relative_to(everything).as_posix() for p in everything.rglob('*.midi')) == ['2004/chopin.midi']
+    assert prnn(['prepare', '--maestro-dir', str(maestro), '--all', '--exclude', 'Bach']) == 1
+    assert prnn(['prepare', '--maestro-dir', str(maestro), '--exclude', 'Frédéric Chopin']) == 1  # needs --all
+
+
+def test_fine_tuning_starts_from_the_weights_of_another_model(project):
+    for i in range(4):
+        write_piece(project / 'data' / 'midi' / 'demo' / f'piece{i}.mid', i)
+    assert prnn(['preprocess', '-w', '1']) is None
+    train = ['train', '-e', '1', '-b', '4', '-w', '40', '-s', '20', '--no-logging', '--device', 'cpu']
+    assert prnn([*train, '-S', 'models/base.sess', '-M', 'hidden_dim=32,gru_layers=2']) is None
+    base = load_checkpoint(project / 'models' / 'base.sess')
+
+    # zero epochs: only the starting state is saved
+    assert (
+        prnn([*train, '-e', '0', '-S', 'models/ft.sess', '--init-from', 'models/base.sess', '-M', 'gru_dropout=0.3'])
+        is None
+    )
+    last = load_checkpoint(project / 'models' / 'ft-last.sess')
+    assert last['model_config'] == {**base['model_config'], 'gru_dropout': 0.3}
+    assert all(last['model_state'][k].equal(v) for k, v in base['model_state'].items())
+    assert last['best_val_loss'] == float('inf')  # measured on other data: chosen again
+
+    assert prnn([*train, '-S', 'models/base.sess', '--init-from', 'models/base.sess']) == 1  # exists
+    assert prnn([*train, '-S', 'models/ft2.sess', '--init-from', 'models/base.sess', '-M', 'hidden_dim=64']) == 1
+
 
 def test_errors_are_one_line(project, capsys):
     assert prnn(['generate', '-s', 'missing.sess', '--device', 'cpu']) == 1

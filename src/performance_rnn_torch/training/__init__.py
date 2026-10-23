@@ -9,6 +9,7 @@ from performance_rnn_torch.training.trainer import (
     load_dataset,
     load_session,
     set_seed,
+    start_from,
     train_model,
 )
 
@@ -23,5 +24,6 @@ __all__ = [
     'load_session',
     'save_checkpoint',
     'set_seed',
+    'start_from',
     'train_model',
 ]

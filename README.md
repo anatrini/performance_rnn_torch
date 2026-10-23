@@ -80,9 +80,9 @@ uv run prnn generate
 
 | Command | What it does | Main options |
 |---|---|---|
-| `prnn prepare` | copies the MIDI files of one composer from MAESTRO to `data/midi/<composer>/` | `--list`, `--composer`, `--maestro-dir`, `--output` |
+| `prnn prepare` | copies the MIDI files of one composer from MAESTRO to `data/midi/<composer>/`, or all of them to `data/midi-maestro/` | `--list`, `--composer`, `--all`, `--exclude`, `--maestro-dir`, `--output` |
 | `prnn preprocess` | MIDI files to training data (`.npz`), keeping the folder structure | `-m` MIDI folder, `-s` output folder, `-w` worker processes |
-| `prnn train` | trains a model, or continues one | `-S` checkpoint, `-d` data, `-M` model settings, `-e` epochs, `-b` batch size, `-w` window |
+| `prnn train` | trains a model, or continues one | `-S` checkpoint, `-d` data, `-M` model settings, `-e` epochs, `-b` batch size, `-w` window, `--init-from` fine-tuning |
 | `prnn generate` | writes MIDI files with a trained model | `-s` checkpoint, `-l` length, `-T` temperature, `-c` controls, `-k`/`-p` top-k/top-p, `-B` beam search |
 | `prnn optimize` | searches hyperparameters with Optuna | `-n` trials |
 | `prnn serve` | plays a model in real time, controlled over OSC from Max or Pd | `-s` checkpoint, `--port`, `--send-port`, `--lookahead` |
@@ -150,6 +150,20 @@ uv run tensorboard --logdir runs
 On an M1 Pro, an epoch on the 101 training pieces of Bach takes about 5.5 minutes with the defaults.
 
 **Differences from Magenta.** Magenta's training data are 30-second pieces of the performances, of at most 512 events, each also stretched in time by ±2.5 and ±5 %, and 10 % of them are held out for validation. Here the windows are cut from whole performances, there is no time stretching, and 30 % of the files are held out (`-r`), because a single composer gives few files.
+
+**Training on all of MAESTRO, then on one composer.** A hundred performances of one composer are few for a model of this size: it soon learns them by heart. Most of what it has to learn, how pianists shape timing and loudness, how notes are held and released, what chords look like on a keyboard, is common to every composer. A better model is often obtained in two stages: first train on all of MAESTRO, then continue on the composer alone (fine-tuning), with a lower learning rate:
+
+```bash
+# 1. All of MAESTRO except Bach (data/midi-maestro/), so that no Bach piece used for validation later has been seen
+uv run prnn prepare --all --exclude "Johann Sebastian Bach"
+uv run prnn preprocess --midi-root data/midi-maestro --save-dir data/processed-maestro
+uv run prnn train -S models/maestro.sess -d data/processed-maestro -r 0.1
+
+# 2. Bach (data/processed/, as in the quick start), starting from the weights of the first model
+uv run prnn train -S models/bach-ft.sess --init-from models/maestro.sess -l 1e-4 -M "gru_dropout=0.3"
+```
+
+`--init-from` starts a new checkpoint from the weights of another one. The model keeps the size of that checkpoint, and `-M` can change only the dropout. The optimizer and the best validation loss start anew, because the data are different. The validation loss of the second stage can then be compared with that of a model trained on Bach alone with the same settings. `--exclude` matches the composer name exactly: transcriptions such as "Johann Sebastian Bach / Ferruccio Busoni" have names of their own, and stay in unless they are also excluded. The first stage takes a long time: MAESTRO without Bach is about 13 times as long as the Bach pieces, so an epoch takes about an hour and a half on an M1 Pro.
 
 **Hyperparameter search.** `uv run prnn optimize -n 20` trains 20 models with different sizes, dropout, batch sizes, strides and learning rates, and keeps the best one in `models/optimization/` with its settings in `best-params.json`. The window, the transposition and the share of batches with controls keep their defaults, so that the validation losses of the trials can be compared. Each trial is a full training: on a laptop the search takes days.
 

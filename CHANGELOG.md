@@ -4,6 +4,11 @@
 
 Models trained with 2.0.0 still load; train new ones to get the new defaults.
 
+### Added
+
+- `prnn train --init-from`: a new model that starts from the weights of another, e.g. one trained on all of MAESTRO, to fine-tune it on one composer. The optimizer and the best validation loss start anew; `-M` can change the dropout.
+- `prnn prepare --all`, with `--exclude` (repeatable): copy every MIDI file of MAESTRO, except those of some composers, to `data/midi-maestro/`.
+
 ### Changed
 
 - **Training windows of 512 events** (`-w`, was 100), as Magenta's training sequences, with a stride of 64 (`-s`, was 10) and at most 50 epochs (`-e`, was 15). With 100 events the model did not learn to use a longer context, and the first events of every window, predicted without context, weighed on the loss five times more.

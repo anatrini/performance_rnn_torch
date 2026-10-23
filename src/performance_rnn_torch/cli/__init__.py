@@ -9,7 +9,7 @@ import importlib
 import sys
 
 COMMANDS = {
-    'prepare': 'Copy the MIDI files of one composer from the MAESTRO dataset',
+    'prepare': 'Copy the MIDI files of one composer, or of all, from the MAESTRO dataset',
     'preprocess': 'Preprocess MIDI files into training data',
     'train': 'Train a model on preprocessed data',
     'generate': 'Generate MIDI files with a trained model',
