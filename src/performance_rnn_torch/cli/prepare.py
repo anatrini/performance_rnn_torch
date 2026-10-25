@@ -1,0 +1,318 @@
+"""
+`prnn prepare`: copy MIDI files out of the MAESTRO dataset.
+
+This command:
+1. Finds the Maestro dataset
+2. Lists available composers
+3. Extracts MIDI files for the selected composer, to data/midi/{composer_name}/,
+   or all of them (--all), except some composers (--exclude), to data/midi-maestro/
+"""
+
+import csv
+import shutil
+from pathlib import Path
+
+from performance_rnn_torch.utils import paths
+from performance_rnn_torch.utils.logger import setup_logger
+
+logger = setup_logger('prepare')
+
+
+def read_maestro_csv(maestro_dir: Path) -> list[dict]:
+    """Rows of maestro-v3.0.0.csv, one dict per recording."""
+    with open(maestro_dir / "maestro-v3.0.0.csv", newline='', encoding='utf-8') as f:
+        return list(csv.DictReader(f))
+
+
+def find_maestro_dataset() -> Path | None:
+    """
+    Find the Maestro dataset directory.
+
+    Searches in:
+    1. data/maestro-v3.0.0/ (or PERFORMANCE_RNN_MAESTRO_DIR)
+    2. maestro-v3.0.0/ in the current directory
+
+    Returns:
+        Path to maestro directory, or None if not found
+    """
+    possible_locations = [
+        paths.maestro_dir,
+        Path.cwd() / "maestro-v3.0.0",
+    ]
+
+    for location in possible_locations:
+        csv_file = location / "maestro-v3.0.0.csv"
+        if csv_file.exists():
+            logger.info(f"Found Maestro dataset at: {location}")
+            return location
+
+    return None
+
+
+def get_available_composers(maestro_dir: Path) -> list[str]:
+    """
+    Get list of available composers from Maestro dataset.
+
+    Args:
+        maestro_dir: Path to maestro dataset directory
+
+    Returns:
+        Sorted list of composer names
+    """
+    return sorted({row['canonical_composer'] for row in read_maestro_csv(maestro_dir)})
+
+
+def list_composers(maestro_dir: Path):
+    """Print available composers in Maestro dataset."""
+    rows = read_maestro_csv(maestro_dir)
+    composers = sorted({row['canonical_composer'] for row in rows})
+
+    logger.info("\n" + "=" * 70)
+    logger.info(f"Available composers in Maestro dataset ({len(composers)} total):")
+    logger.info("=" * 70)
+
+    for i, composer in enumerate(composers, 1):
+        count = sum(row['canonical_composer'] == composer for row in rows)
+        logger.info(f"{i:2d}. {composer:30s} ({count:3d} pieces)")
+
+    logger.info("=" * 70 + "\n")
+
+
+def extract_composer_midis(composer: str, maestro_dir: Path, output_dir: Path | None = None) -> int:
+    """
+    Extract MIDI files for a specific composer.
+
+    Args:
+        composer: Name of composer (must match exactly)
+        maestro_dir: Path to maestro dataset directory
+        output_dir: Custom output directory (default: data/midi/{composer}/
+
+    Returns:
+        Number of files copied
+    """
+    rows = read_maestro_csv(maestro_dir)
+
+    # Check if composer exists
+    available_composers = get_available_composers(maestro_dir)
+    if composer not in available_composers:
+        logger.error(f"\nComposer '{composer}' not found!")
+        logger.error("Did you mean one of these?")
+        # Find close matches
+        close_matches = [c for c in available_composers if composer.lower() in c.lower()]
+        if close_matches:
+            for match in close_matches[:5]:
+                logger.error(f"  - {match}")
+        else:
+            logger.error("Run without --composer to see all available composers")
+        return 0
+
+    # Get MIDI files for this composer
+    composer_files = [row['midi_filename'] for row in rows if row['canonical_composer'] == composer]
+
+    if not composer_files:
+        logger.error(f"No MIDI files found for composer: {composer}")
+        return 0
+
+    # Determine output directory
+    if output_dir is None:
+        # Sanitize composer name for directory
+        safe_composer_name = composer.lower().replace(' ', '_').replace('.', '')
+        output_dir = paths.midi_dir / safe_composer_name
+
+    logger.info(f"\nExtracting {len(composer_files)} MIDI files for: {composer}")
+    # Use just the filename (not the full path with year)
+    return copy_midis(composer_files, maestro_dir, output_dir, keep_folders=False)
+
+
+def extract_all_midis(maestro_dir: Path, output_dir: Path | None = None, exclude: list[str] | None = None) -> int:
+    """
+    Copy every MIDI file of MAESTRO, except those of the excluded composers.
+
+    Args:
+        maestro_dir: Path to maestro dataset directory
+        output_dir: Custom output directory (default: data/midi-maestro/, outside data/midi/,
+                    so that `prnn preprocess` does not mix it with the other MIDI files)
+        exclude: Composer names (must match exactly) whose files are left out
+
+    Returns:
+        Number of files copied
+    """
+    exclude = exclude or []
+    rows = read_maestro_csv(maestro_dir)
+    unknown = sorted(set(exclude) - {row['canonical_composer'] for row in rows})
+    if unknown:
+        logger.error(f"\nComposer not found: {', '.join(unknown)}")
+        logger.error("Run with --list to see all available composers")
+        return 0
+
+    files = [row['midi_filename'] for row in rows if row['canonical_composer'] not in exclude]
+    logger.info(f"\nExtracting {len(files)} of {len(rows)} MIDI files")
+    if exclude:
+        logger.info(f"Left out: {', '.join(exclude)}")
+    # The year folders keep the names of the files apart
+    return copy_midis(files, maestro_dir, output_dir or paths.data_dir / 'midi-maestro', keep_folders=True)
+
+
+def copy_midis(midi_files: list[str], maestro_dir: Path, output_dir: Path, keep_folders: bool) -> int:
+    """Copy midi_files (paths inside maestro_dir) to output_dir; returns the number copied."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+    logger.info(f"Output directory: {output_dir}\n")
+
+    copied_count = 0
+    failed_count = 0
+    step = max(10, len(midi_files) // 10)  # progress about every 10 %
+
+    for midi_file in midi_files:
+        source_path = maestro_dir / midi_file
+
+        if not source_path.exists():
+            logger.warning(f"File not found: {source_path}")
+            failed_count += 1
+            continue
+
+        dest_path = output_dir / (midi_file if keep_folders else source_path.name)
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            shutil.copy2(source_path, dest_path)
+            copied_count += 1
+            if copied_count % step == 0:
+                logger.info(f"Copied {copied_count}/{len(midi_files)} files...")
+        except Exception as e:
+            logger.error(f"Failed to copy {source_path.name}: {e}")
+            failed_count += 1
+
+    logger.info(f"\nCopied {copied_count} files to: {output_dir}")
+    if failed_count > 0:
+        logger.warning(f"Failed to copy {failed_count} files")
+
+    return copied_count
+
+
+HELP = 'Copy the MIDI files of one composer, or of all, from the MAESTRO dataset'
+EPILOG = """
+Examples:
+  # List all available composers
+  prnn prepare --list
+
+  # Extract all pieces by Frédéric Chopin
+  prnn prepare --composer "Frédéric Chopin"
+
+  # Extract to custom directory
+  prnn prepare --composer "Franz Schubert" --output custom_dir/
+
+  # Specify maestro location
+  prnn prepare --composer "Johann Sebastian Bach" --maestro-dir /path/to/maestro-v3.0.0
+
+  # All of MAESTRO except Bach, to data/midi-maestro/ (to train a model and fine-tune it on Bach)
+  prnn prepare --all --exclude "Johann Sebastian Bach"
+"""
+
+
+def add_arguments(parser):
+    parser.add_argument(
+        '-c',
+        '--composer',
+        type=str,
+        default=None,
+        help='Composer name (must match exactly). Use --list to see available composers.',
+    )
+
+    parser.add_argument('-l', '--list', action='store_true', help='List all available composers in Maestro dataset')
+
+    parser.add_argument(
+        '-a', '--all', action='store_true', help='Copy every MIDI file of MAESTRO, keeping the year folders'
+    )
+
+    parser.add_argument(
+        '-x',
+        '--exclude',
+        action='append',
+        default=[],
+        metavar='COMPOSER',
+        help='With --all: leave out this composer (exact name); can be repeated',
+    )
+
+    parser.add_argument(
+        '-o',
+        '--output',
+        type=str,
+        default=None,
+        help='Output directory (default: data/midi/{composer_name}/, or data/midi-maestro/ with --all)',
+    )
+
+    parser.add_argument(
+        '-m',
+        '--maestro-dir',
+        type=str,
+        default=None,
+        help='Path to maestro-v3.0.0 directory (auto-detected if not specified)',
+    )
+
+
+def main(args):
+    # Find Maestro dataset
+    if args.maestro_dir:
+        maestro_dir = Path(args.maestro_dir)
+        if not maestro_dir.exists():
+            logger.error(f"Maestro directory not found: {maestro_dir}")
+            return 1
+    else:
+        maestro_dir = find_maestro_dataset()
+        if maestro_dir is None:
+            logger.error("\n" + "=" * 70)
+            logger.error("Maestro dataset not found!")
+            logger.error("=" * 70)
+            logger.error("\nPlease download the Maestro dataset v3.0.0:")
+            logger.error("  https://magenta.tensorflow.org/datasets/maestro")
+            logger.error("\nExtract it to:")
+            logger.error("  data/maestro-v3.0.0/")
+            logger.error("\nOr specify a custom location with:")
+            logger.error("  --maestro-dir /path/to/maestro-v3.0.0")
+            logger.error("=" * 70 + "\n")
+            return 1
+
+    # List composers if requested
+    if args.list:
+        list_composers(maestro_dir)
+        return 0
+
+    if args.exclude and not args.all:
+        logger.error("--exclude works only with --all")
+        return 1
+    if args.all and args.composer:
+        logger.error("Use either --composer or --all")
+        return 1
+
+    # Extract composer files, or all of them
+    if args.composer or args.all:
+        output_dir = Path(args.output) if args.output else None
+        if args.all:
+            count = extract_all_midis(maestro_dir, output_dir, args.exclude)
+        else:
+            count = extract_composer_midis(args.composer, maestro_dir, output_dir)
+
+        if count > 0:
+            logger.info("\n" + "=" * 70)
+            logger.info("Next steps:")
+            logger.info("=" * 70)
+            logger.info("1. Preprocess the MIDI files:")
+            if args.all:
+                midi_root = output_dir or paths.data_dir / 'midi-maestro'
+                logger.info(f"   prnn preprocess --midi-root {midi_root} --save-dir data/processed-maestro")
+                logger.info("")
+                logger.info("2. Train the model:")
+                logger.info("   prnn train -S models/maestro.sess -d data/processed-maestro")
+            else:
+                logger.info("   prnn preprocess")
+                logger.info("")
+                logger.info("2. Train the model:")
+                logger.info("   prnn train")
+            logger.info("=" * 70 + "\n")
+
+        return 0 if count > 0 else 1
+
+    # No action specified
+    logger.info("No action specified. Use --list to see composers, --composer or --all to extract.")
+    logger.info("Run with --help for more information.")
+    return 1

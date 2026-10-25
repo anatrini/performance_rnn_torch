@@ -1,0 +1,27 @@
+# Environment
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Tools
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.ipynb_checkpoints/
+
+# Working folders created by prnn
+data/
+models/
+output/
+logs/
+runs/
+
+# Editors and OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
