@@ -146,7 +146,7 @@ The best model (lowest validation loss) is saved to the checkpoint, the most rec
 uv run tensorboard --logdir runs
 ```
 
-**Reading the validation loss.** The loss is the average uncertainty about the next event, in nats: 5.96 would mean a random choice among the 388 events, and 4.57 is what the frequency of each event alone gives on the Bach pieces of MAESTRO. Timing and loudness can never be predicted exactly, so even the best published models stay close to 2: on the whole MAESTRO-like Piano-e-Competition data, Magenta's Performance RNN (3 LSTM layers of 1024 units) reaches 1.97 and the Music Transformer 1.84 (Huang et al., 2018, table 3). The validation windows do not overlap, and the first events of each window are predicted without context, so longer windows give a lower loss: compare only models validated with the same `-w`.
+**Reading the validation loss.** The loss is the average uncertainty about the next event, in nats: 5.96 would mean a random choice among the 388 events, and 4.57 is what the frequency of each event alone gives on the Bach pieces of MAESTRO. Timing and loudness can never be predicted exactly, so even the best published models stay close to 2: on the whole MAESTRO-like Piano-e-Competition data, a Performance RNN of 3 LSTM layers of 1024 units, twice as wide as Magenta's released configuration, reaches 1.97 and the Music Transformer 1.84 (Huang et al., 2018, table 3). The validation windows do not overlap, and the first events of each window are predicted without context, so longer windows give a lower loss: compare only models validated with the same `-w`.
 
 On an M1 Pro, an epoch on the 101 training pieces of Bach takes about 5.5 minutes with the defaults.
 
