@@ -236,7 +236,7 @@ uv run ruff check             # lint
 uv run ruff format            # formatting
 ```
 
-The tests run on Linux and macOS at every push (GitHub Actions). See [CONTRIBUTING.md](CONTRIBUTING.md); changes between versions are in [CHANGELOG.md](CHANGELOG.md).
+The tests run on Linux, macOS and Windows at every push (GitHub Actions). See [CONTRIBUTING.md](CONTRIBUTING.md); changes between versions are in [CHANGELOG.md](CHANGELOG.md).
 
 ## Credits and license
 

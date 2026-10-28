@@ -61,6 +61,7 @@ def test_prepare_copies_one_composer(project):
         ('Johann Sebastian Bach', '2004/bach1.midi'),
         ('Johann Sebastian Bach', '2006/bach2.midi'),
         ('Frédéric Chopin', '2004/chopin.midi'),
+        ('Johann Sebastian Bach / Ferruccio Busoni', '2006/busoni.midi'),
     ]
     maestro.mkdir()
     with open(maestro / 'maestro-v3.0.0.csv', 'w', newline='', encoding='utf-8') as f:
@@ -75,11 +76,19 @@ def test_prepare_copies_one_composer(project):
     copied = sorted(p.name for p in (project / 'data' / 'midi' / 'johann_sebastian_bach').iterdir())
     assert copied == ['bach1.midi', 'bach2.midi']
     assert prnn(['prepare', '--maestro-dir', str(maestro), '--composer', 'Bach']) == 1
+    # a transcription gets a folder of its own, not a subfolder
+    assert (
+        prnn(['prepare', '--maestro-dir', str(maestro), '--composer', 'Johann Sebastian Bach / Ferruccio Busoni']) == 0
+    )
+    assert (project / 'data' / 'midi' / 'johann_sebastian_bach_ferruccio_busoni' / 'busoni.midi').exists()
 
     # everything except Bach, with the year folders, outside data/midi/
     assert prnn(['prepare', '--maestro-dir', str(maestro), '--all', '--exclude', 'Johann Sebastian Bach']) == 0
     everything = project / 'data' / 'midi-maestro'
-    assert sorted(p.relative_to(everything).as_posix() for p in everything.rglob('*.midi')) == ['2004/chopin.midi']
+    assert sorted(p.relative_to(everything).as_posix() for p in everything.rglob('*.midi')) == [
+        '2004/chopin.midi',
+        '2006/busoni.midi',
+    ]
     assert prnn(['prepare', '--maestro-dir', str(maestro), '--all', '--exclude', 'Bach']) == 1
     assert prnn(['prepare', '--maestro-dir', str(maestro), '--exclude', 'Frédéric Chopin']) == 1  # needs --all
 

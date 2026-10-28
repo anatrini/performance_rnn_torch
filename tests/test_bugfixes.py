@@ -188,6 +188,9 @@ def test_tensorboard_steps_keep_counting_across_epochs(tmp_path, monkeypatch):
     steps = []
 
     class FakeWriter:
+        def __init__(self, log_dir=None):
+            pass
+
         def add_scalar(self, tag, value, step):
             if tag == 'model/train_loss':
                 steps.append(step)

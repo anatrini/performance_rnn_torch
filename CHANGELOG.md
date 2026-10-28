@@ -26,6 +26,8 @@ Models trained with 2.0.0 still load; train new ones to get the new defaults.
 - `prnn generate` failed with a traceback for `-T 0`, `-k` or `-B` above 388, `-p 0`, `-b 0` and for a control file shorter than `-l`; it now says what is wrong.
 - `prnn preprocess` reported success for a missing or empty MIDI folder; a missing data folder in `prnn train` gave a traceback.
 - `prnn prepare` ignored `PERFORMANCE_RNN_MAESTRO_DIR`.
+- `prnn prepare --composer` put a transcription such as "Johann Sebastian Bach / Ferruccio Busoni" in a subfolder, `johann_sebastian_bach_/_ferruccio_busoni/`; it now gets a folder of its own, `johann_sebastian_bach_ferruccio_busoni/`.
+- TensorBoard wrote to `runs/` in the current folder, ignoring `PERFORMANCE_RNN_HOME` and `PERFORMANCE_RNN_RUNS_DIR`.
 - `PerformanceRNN` used dropout 0.3 by default, unlike `ModelConfig`; `from performance_rnn_torch.core import *` failed.
 - Unused code from 1.x removed (`NoteSeq.trim_overlapped_notes`, `NoteSeq.copy`, `get_package_root`).
 

@@ -9,6 +9,7 @@ This command:
 """
 
 import csv
+import re
 import shutil
 from pathlib import Path
 
@@ -115,8 +116,8 @@ def extract_composer_midis(composer: str, maestro_dir: Path, output_dir: Path | 
 
     # Determine output directory
     if output_dir is None:
-        # Sanitize composer name for directory
-        safe_composer_name = composer.lower().replace(' ', '_').replace('.', '')
+        # One folder per composer: "Johann Sebastian Bach / Ferruccio Busoni" -> johann_sebastian_bach_ferruccio_busoni
+        safe_composer_name = re.sub(r'[^\w-]+', '_', composer.lower().replace('.', '')).strip('_')
         output_dir = paths.midi_dir / safe_composer_name
 
     logger.info(f"\nExtracting {len(composer_files)} MIDI files for: {composer}")

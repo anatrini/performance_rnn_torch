@@ -15,7 +15,7 @@ from performance_rnn_torch.config import MAX_TRANSPOSITION, ModelConfig, TrainCo
 from performance_rnn_torch.core import Dataset, PerformanceRNN
 from performance_rnn_torch.training.checkpoint import load_checkpoint, save_checkpoint
 from performance_rnn_torch.training.early_stopping import EarlyStopping
-from performance_rnn_torch.utils import helpers
+from performance_rnn_torch.utils import helpers, paths
 from performance_rnn_torch.utils.logger import setup_logger
 
 logger = setup_logger('trainer')
@@ -191,7 +191,7 @@ def train_model(
         try:
             from torch.utils.tensorboard import SummaryWriter
 
-            writer = SummaryWriter()
+            writer = SummaryWriter(paths.runs_dir / time.strftime('%Y%m%d_%H%M%S'))
         except ImportError:
             logger.warning('TensorBoard is not installed (uv sync --extra tensorboard): logging disabled')
 

@@ -18,7 +18,7 @@ uv run ruff check       # lint
 uv run pytest           # tests
 ```
 
-GitHub Actions runs the same checks on Linux and macOS. New behaviour comes with a test; a bug fix with a test that fails without it.
+GitHub Actions runs the same checks on Linux, macOS and Windows. New behaviour comes with a test; a bug fix with a test that fails without it.
 
 ## Layout
 
